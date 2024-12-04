@@ -2,52 +2,57 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
-import { configureStore } from '@reduxjs/toolkit';
-import authReducer from './store/slices/authSlice';
-import projectReducer from './store/slices/projectSlice';
+import { configureStore, PreloadedState } from '@reduxjs/toolkit';
+import authReducer, { AuthState } from './store/slices/authSlice';
+import projectReducer, { ProjectState } from './store/slices/projectSlice';
 import App from './App';
 
-const renderWithProviders = async (
+interface RootState {
+  auth: AuthState;
+  project: ProjectState;
+}
+
+const renderWithProviders = (
   ui: React.ReactElement,
-  {
-    preloadedState = {},
-    store = configureStore({
-      reducer: {
-        auth: authReducer,
-        project: projectReducer
-      },
-      preloadedState,
-    }),
-    ...renderOptions
+  options: {
+    preloadedState?: PreloadedState<RootState>;
+    store?: ReturnType<typeof configureStore>;
   } = {}
 ) => {
-  const rendered = render(
-    <Provider store={store}>
-      <BrowserRouter>
-        {ui}
-      </BrowserRouter>
-    </Provider>,
-    renderOptions
-  );
-
-  // Wait for any initial loading states to resolve
-  await waitFor(() => {
-    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
+  const store = options.store ?? configureStore({
+    reducer: {
+      auth: authReducer,
+      project: projectReducer,
+    },
+    preloadedState: options.preloadedState,
   });
 
-  return rendered;
+  const Wrapper = ({ children }: { children: React.ReactNode }) => (
+    <Provider store={store}>
+      <BrowserRouter>
+        {children}
+      </BrowserRouter>
+    </Provider>
+  );
+
+  return {
+    store,
+    ...render(ui, { wrapper: Wrapper }),
+  };
 };
 
 test('renders app without crashing', async () => {
-  await renderWithProviders(<App />);
+  renderWithProviders(<App />);
   
-  // Verify that the app has rendered some basic content
-  expect(screen.getByText(/sign in/i)).toBeInTheDocument();
+  // Wait for any initial loading states to resolve
+  await waitFor(() => {
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+  });
 });
 
 test('shows login page for unauthenticated users', async () => {
-  await renderWithProviders(<App />);
+  renderWithProviders(<App />);
   
   // Verify that unauthenticated users see the login page
-  expect(screen.getByText(/sign in/i)).toBeInTheDocument();
+  expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
 });

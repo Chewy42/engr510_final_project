@@ -13,7 +13,7 @@ import * as projectService from '../../services/projectService';
 import { AppDispatch } from '../store';
 import { wsService } from '../../services/wsInstance'; // Import WebSocket service
 
-interface ProjectState {
+export interface ProjectState {
   // Flow diagram state
   nodes: Node[];
   edges: Edge[];
@@ -27,6 +27,7 @@ interface ProjectState {
   
   // UI state
   isLoading: boolean;
+  isProcessing: boolean;
   error: string | null;
   projectId: string | null;
   isDirty: boolean;
@@ -46,6 +47,7 @@ const initialState: ProjectState = {
   
   // UI state
   isLoading: false,
+  isProcessing: false,
   error: null,
   projectId: null,
   isDirty: false,
