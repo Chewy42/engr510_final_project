@@ -384,6 +384,117 @@ Location: `src/__tests__/`
    - ✓ CORS configuration
    - ✓ HTTP security headers
 
+## AI Services Architecture
+
+### Configuration (`src/config/ai.config.js`)
+```javascript
+{
+  defaultModel: 'gpt-4',
+  apiKey: process.env.OPENAI_API_KEY,
+  apiEndpoint: 'https://api.openai.com/v1',
+  maxTokens: 2000,
+  temperature: 0.7,
+  streamingEnabled: true,
+  retryAttempts: 3,
+  timeout: 30000
+}
+```
+
+### Task Queue System
+
+#### Queue Service (`src/services/queue.service.js`)
+- Manages asynchronous task processing
+- Ensures sequential execution
+- Handles task dependencies
+- Features:
+  - Task prioritization
+  - Error handling
+  - Progress tracking
+  - Child task management
+
+#### Task Types
+1. **Project Setup Task**
+   - Initial project structure generation
+   - Creates PRD and UX analysis tasks
+
+2. **PRD Analysis Task**
+   - Analyzes product requirements
+   - Generates detailed specifications
+
+3. **UX Analysis Task**
+   - Analyzes user experience requirements
+   - Generates component hierarchy
+
+4. **Component Generation Task**
+   - Generates React components
+   - Implements visual layouts
+
+### WebSocket Implementation
+
+#### Server Setup (`src/websocket.js`)
+```javascript
+const wss = new WebSocket.Server({ server, path: '/ws' });
+```
+
+#### Event Handling
+1. **Connection Events**
+   - New connection setup
+   - Client disconnection cleanup
+   - Error handling
+
+2. **Message Types**
+   - Task updates
+   - Generation status
+   - Error notifications
+
+3. **Task Updates**
+   ```javascript
+   eventEmitter.on('taskUpdate', (update) => {
+     ws.send(JSON.stringify({
+       type: 'task_update',
+       ...update
+     }));
+   });
+   ```
+
+### AI Processing Pipeline
+
+1. **Request Flow**
+   ```
+   Client Request → WebSocket → Task Queue → AI Processing → Real-time Updates
+   ```
+
+2. **Task Execution Flow**
+   ```
+   Project Setup → PRD Analysis → UX Analysis → Component Generation
+   ```
+
+3. **Error Handling**
+   - Retry mechanism for failed requests
+   - Error propagation to client
+   - Logging and monitoring
+
+### API Endpoints
+
+#### AI Routes (`/api/ai`)
+1. **Generate Response**
+   - `POST /api/ai/generate`
+   - Handles synchronous AI requests
+   - Supports template-based prompts
+
+2. **Stream Response**
+   - `POST /api/ai/stream`
+   - Server-Sent Events for streaming
+   - Real-time response chunks
+
+#### Analysis Routes (`/api/analysis`)
+1. **Create Analysis**
+   - `POST /api/analysis/:projectId`
+   - Supports multiple analyzer types:
+     - Business case analysis
+     - Requirements analysis
+     - Risk assessment
+
 ## Configuration
 - Environment variables are stored in `.env` file
 - Project configuration and dependencies are defined in `package.json`

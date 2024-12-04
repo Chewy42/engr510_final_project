@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { addMessage } from '../../store/slices/aiSlice';
-import wsService from '../../services/websocket';
-import AIFlowVisualization from './AIFlowVisualization';
+import { resetAIAssistantVisibility } from '../../store/slices/uiSlice';
+import { wsService } from '../../services/wsInstance';
 
 const AIInteractionPanel: React.FC = () => {
   const dispatch = useDispatch();
@@ -12,8 +12,12 @@ const AIInteractionPanel: React.FC = () => {
 
   useEffect(() => {
     wsService.connect();
-    return () => wsService.disconnect();
-  }, []);
+    // Cleanup function
+    return () => {
+      wsService.disconnect();
+      dispatch(resetAIAssistantVisibility());
+    };
+  }, [dispatch]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -42,7 +46,11 @@ const AIInteractionPanel: React.FC = () => {
             <div
               key={msg.id}
               className={`mb-2 p-2 rounded-lg ${
-                msg.sender === 'user' ? 'bg-blue-100 ml-auto' : 'bg-gray-100'
+                msg.sender === 'user' 
+                  ? 'bg-blue-100 ml-auto' 
+                  : msg.sender === 'system'
+                  ? 'bg-red-100 text-red-800'
+                  : 'bg-gray-100'
               } max-w-[80%]`}
             >
               {msg.content}
@@ -70,7 +78,6 @@ const AIInteractionPanel: React.FC = () => {
           </button>
         </div>
       </div>
-      <AIFlowVisualization />
     </div>
   );
 };

@@ -1,21 +1,9 @@
-import { configureStore } from '@reduxjs/toolkit';
-import authReducer from './slices/authSlice';
-import uiReducer from './slices/uiSlice';
-import aiReducer from './slices/aiSlice';
-import flowReducer from './slices/flowSlice';
-import fileGenerationReducer from './slices/fileGenerationSlice';
-import projectGenerationReducer from './slices/projectGenerationSlice';
+import { configureAppStore } from './configureStore';
+import { wsService } from '../services/wsInstance';
 
-export const store = configureStore({
-  reducer: {
-    auth: authReducer,
-    ui: uiReducer,
-    ai: aiReducer,
-    flow: flowReducer,
-    fileGeneration: fileGenerationReducer,
-    projectGeneration: projectGenerationReducer,
-  },
-});
+export const store = configureAppStore();
 
-export type RootState = ReturnType<typeof store.getState>;
-export type AppDispatch = typeof store.dispatch;
+// Set up websocket service with store after initialization
+wsService.setStore(store);
+
+export type { RootState, AppDispatch } from './configureStore';

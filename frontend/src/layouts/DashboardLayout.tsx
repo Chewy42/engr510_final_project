@@ -34,13 +34,13 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { logout } = useAuth();
-  const { sidebarOpen } = useSelector((state: RootState) => state.ui);
+  const { sidebarOpen, showAIAssistant } = useSelector((state: RootState) => state.ui);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const location = useLocation();
 
   const handleSignOut = async () => {
     logout();
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   return (
@@ -51,10 +51,13 @@ export default function DashboardLayout() {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         } md:relative md:translate-x-0`}
       >
+        {/* Logo section */}
         <div className="flex items-center h-16 px-4 bg-gray-900">
           <MdRocketLaunch className="h-8 w-8 text-blue-500" />
           <span className="ml-2 text-xl font-semibold text-white">ProjectFlow</span>
         </div>
+
+        {/* Navigation section */}
         <nav className="flex-1 px-2 py-4 space-y-1">
           {navItems.map((item) => (
             <Link
@@ -67,6 +70,16 @@ export default function DashboardLayout() {
             </Link>
           ))}
         </nav>
+
+        {/* Logout button */}
+        <div className="p-4 border-t border-gray-700">
+          <button
+            onClick={handleSignOut}
+            className="w-full flex items-center justify-center px-4 py-2 text-base font-medium text-white bg-red-600 hover:bg-red-700 rounded-md transition-colors duration-150 ease-in-out"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
 
       {/* Main content */}
@@ -80,8 +93,8 @@ export default function DashboardLayout() {
         </main>
       </div>
 
-      {/* AI Assistant Panel - Only show on project pages */}
-      {location.pathname.includes('/dashboard/projects/') && (
+      {/* AI Assistant Panel - Only show on project pages and when enabled */}
+      {location.pathname.includes('/dashboard/projects/') && showAIAssistant && (
         <div className="fixed bottom-0 right-0 w-96 transform transition-transform duration-200 ease-in-out">
           <AIInteractionPanel />
         </div>

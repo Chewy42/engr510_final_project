@@ -2,17 +2,35 @@ const jwt = require('jsonwebtoken');
 
 const auth = (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      throw new Error();
+    // Get token from Authorization header
+    const authHeader = req.header('Authorization');
+    if (!authHeader) {
+      throw new Error('No Authorization header');
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
-    next();
+    // Check if it's a Bearer token
+    if (!authHeader.startsWith('Bearer ')) {
+      throw new Error('Invalid token format');
+    }
+
+    // Extract the token
+    const token = authHeader.replace('Bearer ', '');
+    if (!token) {
+      throw new Error('No token provided');
+    }
+
+    try {
+      // Verify the token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded;
+      next();
+    } catch (jwtError) {
+      console.error('JWT verification failed:', jwtError);
+      res.status(401).json({ error: 'Invalid token' });
+    }
   } catch (error) {
-    res.status(401).json({ error: 'Please authenticate.' });
+    console.error('Auth middleware error:', error);
+    res.status(401).json({ error: error.message || 'Please authenticate' });
   }
 };
 

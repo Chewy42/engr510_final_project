@@ -1,45 +1,53 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { configureStore } from '@reduxjs/toolkit';
+import authReducer from './store/slices/authSlice';
+import projectReducer from './store/slices/projectSlice';
 import App from './App';
-import authReducer from './features/auth/authSlice';
-import { RootState } from './store/store';
 
-const renderWithProviders = (
+const renderWithProviders = async (
   ui: React.ReactElement,
   {
-    initialState,
+    preloadedState = {},
     store = configureStore({
       reducer: {
         auth: authReducer,
-      } as any,
-      preloadedState: initialState,
+        project: projectReducer
+      },
+      preloadedState,
     }),
-  }: {
-    initialState?: Partial<RootState>;
-    store?: ReturnType<typeof configureStore>;
+    ...renderOptions
   } = {}
 ) => {
-  return render(
+  const rendered = render(
     <Provider store={store}>
       <BrowserRouter>
         {ui}
       </BrowserRouter>
-    </Provider>
+    </Provider>,
+    renderOptions
   );
+
+  // Wait for any initial loading states to resolve
+  await waitFor(() => {
+    expect(screen.queryByText(/loading/i)).not.toBeInTheDocument();
+  });
+
+  return rendered;
 };
 
-describe('App', () => {
-  it('renders without crashing', () => {
-    renderWithProviders(<App />);
-    expect(document.querySelector('div')).toBeInTheDocument();
-  });
+test('renders app without crashing', async () => {
+  await renderWithProviders(<App />);
+  
+  // Verify that the app has rendered some basic content
+  expect(screen.getByText(/sign in/i)).toBeInTheDocument();
+});
 
-  it('shows authentication-related content', () => {
-    renderWithProviders(<App />);
-    // This should match text that appears in either the sign-in page or dashboard
-    expect(screen.getByRole('heading')).toBeInTheDocument();
-  });
+test('shows login page for unauthenticated users', async () => {
+  await renderWithProviders(<App />);
+  
+  // Verify that unauthenticated users see the login page
+  expect(screen.getByText(/sign in/i)).toBeInTheDocument();
 });

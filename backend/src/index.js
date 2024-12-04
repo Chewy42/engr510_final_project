@@ -2,8 +2,11 @@ require('dotenv').config();
 const app = require('./app');
 const db = require('./db/database');
 const bcrypt = require('bcrypt');
+const http = require('http');
+const setupWebSocket = require('./websocket');
 
 const PORT = process.env.PORT || 5000;
+const WS_PORT = process.env.WS_PORT || 3001;
 
 // Create dummy account if it doesn't exist
 const createDummyAccount = async () => {
@@ -30,8 +33,16 @@ const createDummyAccount = async () => {
   }
 };
 
-// Start server
+// Create HTTP server for WebSocket
+const wsServer = http.createServer();
+const wss = setupWebSocket(wsServer);
+
+// Start servers
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`HTTP Server is running on port ${PORT}`);
   createDummyAccount();
+});
+
+wsServer.listen(WS_PORT, () => {
+  console.log(`WebSocket Server is running on port ${WS_PORT}`);
 });

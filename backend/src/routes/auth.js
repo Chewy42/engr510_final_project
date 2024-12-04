@@ -2,8 +2,27 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../db/database');
+const auth = require('../middleware/auth');
 
 const router = express.Router();
+
+// Get current user
+router.get('/me', auth, async (req, res) => {
+  try {
+    const user = db.prepare('SELECT uid, email, created_at FROM users WHERE uid = ?').get(req.user.uid);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Don't send the password
+    delete user.password;
+    res.json(user);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Error fetching user data' });
+  }
+});
 
 // Register new user
 router.post('/register', async (req, res) => {
@@ -27,6 +46,7 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({ token });
   } catch (error) {
+    console.error('Error creating user:', error);
     res.status(500).json({ error: 'Error creating user' });
   }
 });

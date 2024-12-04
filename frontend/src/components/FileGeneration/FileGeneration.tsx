@@ -60,7 +60,7 @@ const FileGeneration: React.FC = () => {
         onUpdate: (metadata: { percent: number }) => {
           dispatch(setExportProgress(metadata.percent));
         },
-      });
+      } as any) as Blob;
 
       const url = URL.createObjectURL(content);
       const a = document.createElement('a');

@@ -17,6 +17,8 @@ const ProjectsList = lazy(() => import('../pages/ProjectsList'));
 const ProjectDetail = lazy(() => import('../pages/ProjectDetail'));
 const ProjectGenerationPage = lazy(() => import('../pages/ProjectGeneration'));
 const FileGenerationPage = lazy(() => import('../pages/FileGenerationPage'));
+const NewProject = lazy(() => import('../pages/NewProject'));
+const Files = lazy(() => import('../pages/Files'));
 
 const AppRoutes = () => {
   return (
@@ -43,15 +45,17 @@ const AppRoutes = () => {
         >
           <Route index element={<Dashboard />} />
           <Route path="projects" element={<ProjectsList />} />
+          <Route path="projects/new" element={<NewProject />} />
           <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="ai" element={<AIAssistant />} />
           <Route path="generate" element={<ProjectGenerationPage />} />
-          <Route path="files" element={<FileGenerationPage />} />
+          <Route path="files" element={<Files />} />
+          <Route path="file-generation" element={<FileGenerationPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
 
-        {/* Catch all */}
-        <Route path="*" element={<Navigate to="/auth/signin" replace />} />
+        {/* Fallback for unknown routes */}
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   );

@@ -6,6 +6,7 @@ The frontend is built using React with TypeScript, utilizing modern web developm
 - Redux for state management
 - TailwindCSS for styling
 - Cypress for testing
+- WebSocket for real-time communication
 
 ## Project Structure
 ```
@@ -18,6 +19,7 @@ frontend/
 │   ├── layouts/      # Page layout components
 │   ├── pages/        # Page components
 │   ├── routes/       # Routing configuration
+│   ├── services/     # Service layer for API and WebSocket interactions
 │   ├── store/        # Redux store setup and slices
 │   ├── types/        # TypeScript type definitions
 │   └── utils/        # Utility functions
@@ -36,6 +38,7 @@ Located in `src/layouts/`, these components provide consistent page structures:
 ### Pages
 Found in `src/pages/`, each representing a distinct route:
 - `Dashboard.tsx`: Main dashboard interface
+- `NewProject.tsx`: Project generation interface
 - Additional pages for specific features
 
 ### State Management
@@ -76,6 +79,14 @@ The main dashboard interface includes:
 - Implements hover animations and transitions
 - Connects to Redux store for auth state
 
+#### New Project (`src/pages/NewProject/index.tsx`)
+- Handles project structure generation
+- Features:
+  - Natural language prompt input
+  - Visual project structure display
+  - Real-time updates during generation
+  - Save/export functionality
+
 ### State Management Architecture
 
 #### Redux Store Organization
@@ -84,9 +95,30 @@ The main dashboard interface includes:
    - Used by Dashboard and DashboardLayout
 
 2. **UI Slice**
-   - Controls sidebar visibility
-   - Manages UI-related state
-   - Used by DashboardLayout for responsive behavior
+   - Controls UI state
+   - Manages responsive behaviors
+   - Handles user preferences
+
+3. **AI Slice** (`src/store/slices/aiSlice.ts`)
+   - Manages AI interaction state
+   - State includes:
+     - WebSocket connection status
+     - Message history
+     - Processing status
+   - Actions:
+     - `setWsConnected`
+     - `addMessage`
+     - `setProcessing`
+     - `updateTask`
+
+4. **Project Slice** (`src/store/slices/projectSlice.ts`)
+   - Manages project structure state
+   - Handles nodes and edges for visualization
+   - Actions:
+     - `updateNodes`
+     - `updateEdges`
+     - `generateProjectStructure`
+     - `saveProject`
 
 ### Component Interactions
 1. **Authentication Flow**
@@ -103,6 +135,47 @@ The main dashboard interface includes:
    - Sidebar toggles automatically on mobile
    - Uses Tailwind breakpoints for responsive layouts
    - Smooth transitions and animations
+
+4. **AI Communication Flow**
+   ```
+   User Input → WebSocket → AI Processing → Real-time Updates → UI Update
+   ```
+
+5. **Project Generation Flow**
+   ```
+   Prompt → Task Queue → Progress Updates → Visual Structure → Save
+   ```
+
+### WebSocket Integration
+The application uses WebSocket for real-time communication with the backend:
+
+1. **WebSocket Service** (`src/services/websocket.ts`)
+   - Manages WebSocket connection lifecycle
+   - Handles reconnection logic
+   - Dispatches real-time updates to Redux store
+   - Message types:
+     - `task_update`: Project generation progress
+     - `generation_started`: Start of AI processing
+     - `generation_complete`: Completion of generation
+     - `error`: Error notifications
+
+2. **Connection Management**
+   ```typescript
+   // Instance creation
+   const wsService = createWebSocketService();
+   wsService.setStore(store);
+   ```
+
+### AI Integration Components
+
+#### AI Interaction Panel (`src/components/GenerativeComponent/AIInteractionPanel.tsx`)
+- Real-time chat interface with AI
+- Displays generation status
+- Handles message history
+- Components:
+  - Message display area
+  - Input field with send button
+  - Connection status indicator
 
 ### UI/UX Patterns
 1. **Consistent Styling**
@@ -357,10 +430,26 @@ The application uses a token-based authentication system implemented with Redux 
    - Manages responsive behaviors
    - Handles user preferences
 
-3. **State Access Patterns**
-   - Components use `useSelector` for state access
-   - Actions dispatched via `useDispatch`
-   - Async operations via `createAsyncThunk`
+3. **AI Slice** (`src/store/slices/aiSlice.ts`)
+   - Manages AI interaction state
+   - State includes:
+     - WebSocket connection status
+     - Message history
+     - Processing status
+   - Actions:
+     - `setWsConnected`
+     - `addMessage`
+     - `setProcessing`
+     - `updateTask`
+
+4. **Project Slice** (`src/store/slices/projectSlice.ts`)
+   - Manages project structure state
+   - Handles nodes and edges for visualization
+   - Actions:
+     - `updateNodes`
+     - `updateEdges`
+     - `generateProjectStructure`
+     - `saveProject`
 
 ### Data Flow
 

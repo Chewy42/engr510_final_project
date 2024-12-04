@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { useAuth } from '../hooks/useAuth';
+import { toast } from 'react-toastify';
 
 export default function SignUp() {
   const navigate = useNavigate();
-  const { login, loading, error } = useAuth();
+  const { register, loading, error, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -17,6 +18,12 @@ export default function SignUp() {
     password: '',
     confirmPassword: '',
   });
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -43,6 +50,9 @@ export default function SignUp() {
     } else if (formData.password.length < 8) {
       errors.password = 'Password must be at least 8 characters';
       isValid = false;
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      errors.password = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
+      isValid = false;
     }
 
     if (formData.password !== formData.confirmPassword) {
@@ -59,10 +69,11 @@ export default function SignUp() {
     if (!validateForm()) return;
 
     try {
-      await login(formData.email, formData.password); // Replace with actual signup
+      await register(formData.email, formData.password);
+      toast.success('Account created successfully!');
       navigate('/dashboard');
-    } catch (err) {
-      // Error is handled by useAuth hook
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to create account');
     }
   };
 
@@ -106,7 +117,7 @@ export default function SignUp() {
             value={formData.password}
             onChange={handleChange}
             error={formErrors.password}
-            helperText="Must be at least 8 characters"
+            helperText="Must be at least 8 characters with one uppercase letter, one lowercase letter, and one number"
           />
 
           <Input
@@ -126,6 +137,7 @@ export default function SignUp() {
           className="w-full"
           size="lg"
           isLoading={loading}
+          disabled={loading}
         >
           Create account
         </Button>

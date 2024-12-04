@@ -1,18 +1,32 @@
-import { store } from '../store';
-import { setWsConnected, addMessage } from '../store/slices/aiSlice';
+import { Store } from '@reduxjs/toolkit';
+import { setWsConnected, addMessage, setProcessing, updateTask } from '../store/slices/aiSlice';
+import { updateNodes, updateEdges } from '../store/slices/projectSlice';
 
-class WebSocketService {
+export class WebSocketService {
   private ws: WebSocket | null = null;
   private readonly url: string;
+  private store: Store | null = null;
 
   constructor() {
     this.url = process.env.REACT_APP_WS_URL || 'ws://localhost:3001/ws';
+  }
+
+  setStore(store: Store) {
+    this.store = store;
+  }
+
+  private ensureStore(): Store {
+    if (!this.store) {
+      throw new Error('Store is not initialized');
+    }
+    return this.store;
   }
 
   connect() {
     if (this.ws?.readyState === WebSocket.OPEN) return;
 
     this.ws = new WebSocket(this.url);
+    const store = this.ensureStore();
 
     this.ws.onopen = () => {
       store.dispatch(setWsConnected(true));
@@ -29,27 +43,89 @@ class WebSocketService {
     this.ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data);
-        store.dispatch(addMessage({
-          id: Date.now().toString(),
-          content: message.content,
-          sender: 'ai',
-          timestamp: Date.now(),
-        }));
+        const store = this.ensureStore();
+        
+        switch (message.type) {
+          case 'task_update':
+            store.dispatch(updateTask({
+              type: message.type,
+              status: message.status,
+              message: message.message,
+              data: message.data,
+              children: message.children,
+            }));
+            
+            // Also add a message to the chat
+            store.dispatch(addMessage({
+              id: Date.now().toString(),
+              content: `${message.message || message.type} - ${message.status}`,
+              sender: 'system',
+              timestamp: Date.now(),
+            }));
+
+            // Update nodes and edges if data contains them
+            if (message.data?.nodes && message.data?.edges) {
+              store.dispatch(updateNodes(message.data.nodes));
+              store.dispatch(updateEdges(message.data.edges));
+            }
+            break;
+
+          case 'generation_started':
+            store.dispatch(addMessage({
+              id: Date.now().toString(),
+              content: message.message,
+              sender: 'system',
+              timestamp: Date.now(),
+            }));
+            store.dispatch(setProcessing(true));
+            break;
+
+          case 'generation_complete':
+            store.dispatch(addMessage({
+              id: Date.now().toString(),
+              content: 'Project structure generation complete',
+              sender: 'system',
+              timestamp: Date.now(),
+            }));
+            store.dispatch(setProcessing(false));
+            break;
+
+          case 'error':
+            store.dispatch(addMessage({
+              id: Date.now().toString(),
+              content: 'Error: ' + message.content,
+              sender: 'system',
+              timestamp: Date.now(),
+            }));
+            store.dispatch(setProcessing(false));
+            break;
+        }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error);
+        this.ensureStore().dispatch(setProcessing(false));
       }
     };
 
     this.ws.onerror = (error) => {
       console.error('WebSocket error:', error);
+      store.dispatch(setProcessing(false));
     };
   }
 
   sendMessage(content: string) {
     if (this.ws?.readyState === WebSocket.OPEN) {
+      const store = this.ensureStore();
+      store.dispatch(setProcessing(true));
       this.ws.send(JSON.stringify({ content }));
     } else {
       console.error('WebSocket is not connected');
+      const store = this.ensureStore();
+      store.dispatch(addMessage({
+        id: Date.now().toString(),
+        content: 'Error: WebSocket is not connected',
+        sender: 'system',
+        timestamp: Date.now(),
+      }));
     }
   }
 
@@ -61,5 +137,6 @@ class WebSocketService {
   }
 }
 
-export const wsService = new WebSocketService();
-export default wsService;
+export function createWebSocketService(): WebSocketService {
+  return new WebSocketService();
+}
