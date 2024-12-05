@@ -2,23 +2,22 @@
 module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
-    "./public/index.html"
+    "./public/index.html",
   ],
   theme: {
     extend: {
       colors: {
-        // Primary colors
         primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
+          50: '#e3f2fd',
+          100: '#bbdefb',
+          200: '#90caf9',
+          300: '#64b5f6',
+          400: '#42a5f5',
+          500: '#2196f3',  // primary color
+          600: '#1e88e5',
+          700: '#1976d2',
+          800: '#1565c0',
+          900: '#0d47a1',
         },
         // Neutral colors for text and backgrounds
         neutral: {
@@ -67,8 +66,9 @@ module.exports = {
       },
       spacing: {
         '18': '4.5rem',
-        '112': '28rem',
-        '128': '32rem',
+        '72': '18rem',
+        '84': '21rem',
+        '96': '24rem',
       },
       borderRadius: {
         '4xl': '2rem',
@@ -76,6 +76,7 @@ module.exports = {
       animation: {
         'fade-in': 'fade-in 0.5s ease-out',
         'slide-in': 'slide-in 0.5s ease-out',
+        'spin-slow': 'spin 3s linear infinite',
       },
       keyframes: {
         'fade-in': {

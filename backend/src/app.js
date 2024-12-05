@@ -3,6 +3,9 @@ const cors = require('cors');
 const helmet = require('helmet');
 require('dotenv').config();
 
+const configureSecurityMiddleware = require('./middleware/security');
+const { errorHandler } = require('./middleware/errorHandler');
+
 const authRoutes = require('./routes/auth');
 const aiRoutes = require('./routes/ai.routes');
 const projectRoutes = require('./routes/projects');
@@ -10,11 +13,12 @@ const analysisRoutes = require('./routes/analysis');
 
 const app = express();
 
-// Middleware
-app.use(helmet()); // Security middleware
-app.use(cors()); // Enable CORS
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+// Configure security middleware (includes helmet, cors, and rate limiting)
+configureSecurityMiddleware(app);
+
+// Parse JSON and URL-encoded bodies with size limits
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -27,13 +31,7 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'ok', message: 'Server is running' });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    status: 'error',
-    message: 'Something went wrong!'
-  });
-});
+// Global error handling middleware
+app.use(errorHandler);
 
 module.exports = app;

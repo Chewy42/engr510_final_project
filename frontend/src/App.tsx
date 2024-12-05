@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { BrowserRouter as Router } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { store } from './store/store';
 import AppRoutes from './routes';
+import { AuthProvider } from './contexts/AuthContext';
 import { initializeAuth } from './store/slices/authSlice';
 import { CircularProgress } from '@mui/material';
 
@@ -18,12 +20,13 @@ const AppContent: React.FC = () => {
         setIsInitializing(false);
       }
     };
+
     initAuth();
   }, []);
 
   if (isInitializing) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+      <div className="flex items-center justify-center h-screen">
         <CircularProgress />
       </div>
     );
@@ -35,7 +38,11 @@ const AppContent: React.FC = () => {
 const App: React.FC = () => {
   return (
     <Provider store={store}>
-      <AppContent />
+      <Router>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </Router>
     </Provider>
   );
 };

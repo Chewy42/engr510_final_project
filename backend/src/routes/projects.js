@@ -2,9 +2,12 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db/database');
 const auth = require('../middleware/auth');
+const validate = require('../middleware/validation');
+const { projectValidation, projectUpdateValidation, projectIdValidation } = require('../validators/project.validator');
+const { APIError } = require('../middleware/errorHandler');
 
 // Create a new project
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, validate(projectValidation), async (req, res, next) => {
   try {
     const { name, description, methodology, target_completion_date } = req.body;
     const uid = req.user.uid;
@@ -19,13 +22,12 @@ router.post('/', auth, async (req, res) => {
       message: 'Project created successfully'
     });
   } catch (error) {
-    console.error('Error creating project:', error);
-    res.status(500).json({ error: 'Error creating project' });
+    next(error);
   }
 });
 
 // Get all projects for a user
-router.get('/', auth, (req, res) => {
+router.get('/', auth, (req, res, next) => {
   try {
     const projects = db.prepare(`
       SELECT * FROM projects WHERE uid = ? ORDER BY created_at DESC
@@ -33,31 +35,29 @@ router.get('/', auth, (req, res) => {
 
     res.json(projects);
   } catch (error) {
-    console.error('Error fetching projects:', error);
-    res.status(500).json({ error: 'Error fetching projects' });
+    next(error);
   }
 });
 
 // Get a specific project
-router.get('/:id', auth, (req, res) => {
+router.get('/:id', auth, validate(projectIdValidation), (req, res, next) => {
   try {
     const project = db.prepare(`
       SELECT * FROM projects WHERE project_id = ? AND uid = ?
     `).get(req.params.id, req.user.uid);
 
     if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+      throw new APIError(404, 'Project not found');
     }
 
     res.json(project);
   } catch (error) {
-    console.error('Error fetching project:', error);
-    res.status(500).json({ error: 'Error fetching project' });
+    next(error);
   }
 });
 
 // Update a project
-router.put('/:id', auth, (req, res) => {
+router.put('/:id', auth, validate([...projectIdValidation, ...projectUpdateValidation]), (req, res, next) => {
   try {
     const { name, description, methodology, status, target_completion_date } = req.body;
     const { id } = req.params;
@@ -65,7 +65,7 @@ router.put('/:id', auth, (req, res) => {
 
     const project = db.prepare('SELECT * FROM projects WHERE project_id = ? AND uid = ?').get(id, uid);
     if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+      throw new APIError(404, 'Project not found');
     }
 
     db.prepare(`
@@ -76,36 +76,36 @@ router.put('/:id', auth, (req, res) => {
 
     res.json({ message: 'Project updated successfully' });
   } catch (error) {
-    console.error('Error updating project:', error);
-    res.status(500).json({ error: 'Error updating project' });
+    next(error);
   }
 });
 
 // Delete a project
-router.delete('/:id', auth, (req, res) => {
+router.delete('/:id', auth, validate(projectIdValidation), (req, res, next) => {
   try {
     const { id } = req.params;
     const uid = req.user.uid;
 
     const project = db.prepare('SELECT * FROM projects WHERE project_id = ? AND uid = ?').get(id, uid);
     if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+      throw new APIError(404, 'Project not found');
     }
 
-    // Delete related records first
-    db.prepare('DELETE FROM analysis_results WHERE project_id = ?').run(id);
-    db.prepare('DELETE FROM project_artifacts WHERE project_id = ?').run(id);
-    db.prepare('DELETE FROM projects WHERE project_id = ? AND uid = ?').run(id, uid);
+    // Delete related records first (using a transaction)
+    db.transaction(() => {
+      db.prepare('DELETE FROM analysis_results WHERE project_id = ?').run(id);
+      db.prepare('DELETE FROM project_artifacts WHERE project_id = ?').run(id);
+      db.prepare('DELETE FROM projects WHERE project_id = ? AND uid = ?').run(id, uid);
+    })();
 
     res.json({ message: 'Project deleted successfully' });
   } catch (error) {
-    console.error('Error deleting project:', error);
-    res.status(500).json({ error: 'Error deleting project' });
+    next(error);
   }
 });
 
 // Create a project artifact
-router.post('/:id/artifacts', auth, (req, res) => {
+router.post('/:id/artifacts', auth, (req, res, next) => {
   try {
     const { type, content } = req.body;
     const { id } = req.params;
@@ -114,7 +114,7 @@ router.post('/:id/artifacts', auth, (req, res) => {
     // Verify project ownership
     const project = db.prepare('SELECT * FROM projects WHERE project_id = ? AND uid = ?').get(id, uid);
     if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+      throw new APIError(404, 'Project not found');
     }
 
     const result = db.prepare(`
@@ -127,13 +127,12 @@ router.post('/:id/artifacts', auth, (req, res) => {
       message: 'Artifact created successfully'
     });
   } catch (error) {
-    console.error('Error creating artifact:', error);
-    res.status(500).json({ error: 'Error creating artifact' });
+    next(error);
   }
 });
 
 // Get project artifacts
-router.get('/:id/artifacts', auth, (req, res) => {
+router.get('/:id/artifacts', auth, (req, res, next) => {
   try {
     const { id } = req.params;
     const uid = req.user.uid;
@@ -141,7 +140,7 @@ router.get('/:id/artifacts', auth, (req, res) => {
     // Verify project ownership
     const project = db.prepare('SELECT * FROM projects WHERE project_id = ? AND uid = ?').get(id, uid);
     if (!project) {
-      return res.status(404).json({ error: 'Project not found' });
+      throw new APIError(404, 'Project not found');
     }
 
     const artifacts = db.prepare(`
@@ -150,8 +149,7 @@ router.get('/:id/artifacts', auth, (req, res) => {
 
     res.json(artifacts);
   } catch (error) {
-    console.error('Error fetching artifacts:', error);
-    res.status(500).json({ error: 'Error fetching artifacts' });
+    next(error);
   }
 });
 

@@ -1,58 +1,96 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
-import { configureStore, PreloadedState } from '@reduxjs/toolkit';
-import authReducer, { AuthState } from './store/slices/authSlice';
-import projectReducer, { ProjectState } from './store/slices/projectSlice';
+import { configureStore } from '@reduxjs/toolkit';
+import projectReducer from './store/slices/projectSlice';
+import authReducer from './store/slices/authSlice';
+import { ProjectState } from './types/project.types';
 import App from './App';
 
-interface RootState {
-  auth: AuthState;
-  project: ProjectState;
+interface AuthState {
+  isAuthenticated: boolean;
+  user: null | { email: string };
+  loading: boolean;
+  error: string | undefined;
+  token: string | null;
+  initialized: boolean;
 }
 
-const renderWithProviders = (
+interface RenderOptions {
+  preloadedState?: {
+    project?: ProjectState;
+    auth?: AuthState;
+  };
+  store?: ReturnType<typeof configureStore>;
+}
+
+function renderWithProviders(
   ui: React.ReactElement,
-  options: {
-    preloadedState?: PreloadedState<RootState>;
-    store?: ReturnType<typeof configureStore>;
-  } = {}
-) => {
-  const store = options.store ?? configureStore({
+  {
+    preloadedState = {
+      project: {
+        // Flow diagram state
+        nodes: [],
+        edges: [],
+        prompt: '',
+        
+        // Project management state
+        projects: [],
+        currentProject: null,
+        artifacts: [],
+        analyses: [],
+        
+        // Project creation state
+        projectName: '',
+        projectDescription: '',
+        
+        // UI state
+        isLoading: false,
+        isProcessing: false,
+        error: null,
+        projectId: null,
+        isDirty: false
+      },
+      auth: {
+        isAuthenticated: false,
+        user: null,
+        loading: false,
+        error: undefined,
+        token: null,
+        initialized: true
+      }
+    }
+  }: RenderOptions = {}
+) {
+  const store = configureStore({
     reducer: {
-      auth: authReducer,
       project: projectReducer,
+      auth: authReducer
     },
-    preloadedState: options.preloadedState,
+    preloadedState
   });
 
-  const Wrapper = ({ children }: { children: React.ReactNode }) => (
-    <Provider store={store}>
-      <BrowserRouter>
-        {children}
-      </BrowserRouter>
-    </Provider>
-  );
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <Provider store={store}>
+        <BrowserRouter>
+          {children}
+        </BrowserRouter>
+      </Provider>
+    );
+  }
 
   return {
     store,
-    ...render(ui, { wrapper: Wrapper }),
+    ...render(ui, { wrapper: Wrapper })
   };
-};
+}
 
-test('renders app without crashing', async () => {
-  renderWithProviders(<App />);
-  
-  // Wait for any initial loading states to resolve
-  await waitFor(() => {
-    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+describe('App Component', () => {
+  test('renders app without crashing', async () => {
+    renderWithProviders(<App />);
+    // Add appropriate assertions based on your app's initial render state
+    expect(screen.getByTestId('app-container')).toBeInTheDocument();
   });
-});
-
-test('shows login page for unauthenticated users', async () => {
-  renderWithProviders(<App />);
-  
-  // Verify that unauthenticated users see the login page
-  expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument();
 });

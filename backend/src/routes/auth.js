@@ -3,36 +3,38 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const db = require('../db/database');
 const auth = require('../middleware/auth');
+const validate = require('../middleware/validation');
+const { registerValidation, loginValidation } = require('../validators/auth.validator');
+const { APIError } = require('../middleware/errorHandler');
 
 const router = express.Router();
 
 // Get current user
-router.get('/me', auth, async (req, res) => {
+router.get('/me', auth, async (req, res, next) => {
   try {
     const user = db.prepare('SELECT uid, email, created_at FROM users WHERE uid = ?').get(req.user.uid);
     
     if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      throw new APIError(404, 'User not found');
     }
 
     // Don't send the password
     delete user.password;
     res.json(user);
   } catch (error) {
-    console.error('Error fetching user:', error);
-    res.status(500).json({ error: 'Error fetching user data' });
+    next(error);
   }
 });
 
 // Register new user
-router.post('/register', async (req, res) => {
+router.post('/register', validate(registerValidation), async (req, res, next) => {
   try {
     const { email, password } = req.body;
     
     // Check if user already exists
     const existingUser = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     if (existingUser) {
-      return res.status(400).json({ error: 'Email already registered' });
+      throw new APIError(400, 'Email already registered');
     }
 
     // Hash password
@@ -46,13 +48,12 @@ router.post('/register', async (req, res) => {
 
     res.status(201).json({ token });
   } catch (error) {
-    console.error('Error creating user:', error);
-    res.status(500).json({ error: 'Error creating user' });
+    next(error);
   }
 });
 
 // Login user
-router.post('/login', async (req, res) => {
+router.post('/login', validate(loginValidation), async (req, res, next) => {
   try {
     const { email, password } = req.body;
     console.log('Login attempt:', { email }); // Log login attempt
@@ -63,7 +64,7 @@ router.post('/login', async (req, res) => {
 
     if (!user) {
       console.log('User not found');
-      return res.status(401).json({ error: 'Invalid credentials' });
+      throw new APIError(401, 'Invalid credentials');
     }
 
     // Check password
@@ -72,7 +73,7 @@ router.post('/login', async (req, res) => {
 
     if (!isMatch) {
       console.log('Password mismatch');
-      return res.status(401).json({ error: 'Invalid credentials' });
+      throw new APIError(401, 'Invalid credentials');
     }
 
     // Generate JWT token
@@ -81,8 +82,7 @@ router.post('/login', async (req, res) => {
 
     res.json({ token });
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Error logging in' });
+    next(error);
   }
 });
 

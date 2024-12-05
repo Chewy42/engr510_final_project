@@ -52,6 +52,7 @@ const ProjectDetails: React.FC = () => {
   const dispatch = useAppDispatch();
   const [tabValue, setTabValue] = useState(0);
   const [createArtifactOpen, setCreateArtifactOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const { currentProject, artifacts, analyses, isLoading, error } = useAppSelector(
     (state: RootState) => state.project
@@ -59,10 +60,9 @@ const ProjectDetails: React.FC = () => {
 
   useEffect(() => {
     if (projectId) {
-      const id = parseInt(projectId);
-      dispatch(fetchProject(id));
-      dispatch(fetchProjectArtifacts(id));
-      dispatch(fetchProjectAnalyses(id));
+      dispatch(fetchProject(projectId));
+      dispatch(fetchProjectArtifacts(projectId));
+      dispatch(fetchProjectAnalyses(projectId));
     }
   }, [dispatch, projectId]);
 
@@ -79,13 +79,20 @@ const ProjectDetails: React.FC = () => {
   };
 
   const handleCreateAnalysis = async (analyzerType: AnalyzerType) => {
-    if (projectId) {
+    if (!projectId) return;
+    
+    try {
+      setLoading(true);
       await dispatch(
         createProjectAnalysis({
-          projectId: parseInt(projectId),
-          data: { analyzer_type: analyzerType },
+          projectId,
+          analysisData: { analyzer_type: analyzerType }
         })
       );
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to create analysis:', error);
+      setLoading(false);
     }
   };
 
@@ -103,6 +110,10 @@ const ProjectDetails: React.FC = () => {
         <Typography color="error">{error}</Typography>
       </Box>
     );
+  }
+
+  if (!projectId) {
+    return <div>No project ID provided</div>;
   }
 
   if (!currentProject) {
@@ -236,7 +247,7 @@ const ProjectDetails: React.FC = () => {
       <CreateArtifactDialog
         open={createArtifactOpen}
         onClose={() => setCreateArtifactOpen(false)}
-        projectId={parseInt(projectId!)}
+        projectId={projectId}
       />
     </Box>
   );

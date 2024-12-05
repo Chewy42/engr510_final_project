@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import ReactFlow, {
   Background,
   Controls,
@@ -29,6 +29,7 @@ interface ProjectState {
 
 interface AgentOrchestrationService {
   getArtifacts: (projectId: string) => Promise<any>;
+  generateArtifacts: () => Promise<{nodes: Node[], edges: Edge[]}>;
   approveArtifact: (nodeId: string) => Promise<void>;
   executeAnalysis: (projectId: string) => Promise<void>;
 }
@@ -44,11 +45,16 @@ type CustomNode = Node & {
   type: keyof typeof nodeTypes;
 };
 
-const Flow: React.FC = () => {
+interface Props {
+  agentOrchestrationService: AgentOrchestrationService;
+}
+
+const Flow: React.FC<Props> = ({ agentOrchestrationService }) => {
   const dispatch = useAppDispatch();
   const { currentProject, isProcessing } = useSelector((state: RootState) => state.project);
-  const [nodes, setNodes, onNodesChange] = useNodesState<CustomNode[]>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge[]>([]);
+  const [nodes, setNodes, onNodesChange] = useNodesState([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [isProcessingState, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -58,7 +64,7 @@ const Flow: React.FC = () => {
   }, [currentProject]);
 
   const loadArtifacts = async () => {
-    if (!currentProject) return;
+    if (!currentProject || !currentProject.project_id) return;
     
     try {
       const artifacts = await agentOrchestrationService.getArtifacts(currentProject.project_id.toString());
@@ -71,23 +77,31 @@ const Flow: React.FC = () => {
     }
   };
 
-  const handleAnalyze = async () => {
-    if (!currentProject) return;
+  const handleGenerate = async () => {
+    setIsProcessing(true);
+    setError(null);
 
     try {
-      setError(null);
+      const result = await agentOrchestrationService.generateArtifacts();
+      if (!result || !result.nodes || !result.edges) {
+        throw new Error('Invalid response from server');
+      }
 
-      // Execute analysis
-      await agentOrchestrationService.executeAnalysis(currentProject.project_id.toString());
+      const processedNodes = result.nodes.map(node => ({
+        ...node,
+        data: {
+          ...node.data,
+          label: node.data.label || 'Untitled Node'
+        }
+      }));
 
-      // Load updated artifacts
-      const artifacts = await agentOrchestrationService.getArtifacts(currentProject.project_id.toString());
-      const { nodes: newNodes, edges: newEdges } = calculateNodePositions(artifacts);
-      setNodes(newNodes as CustomNode[]);
-      setEdges(newEdges);
+      setNodes(processedNodes);
+      setEdges(result.edges);
     } catch (err) {
-      setError('Analysis failed');
+      setError('Failed to load artifacts');
       console.error(err);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -108,13 +122,8 @@ const Flow: React.FC = () => {
   };
 
   return (
-    <div className="w-full h-full">
-      {error && (
-        <div className="absolute top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
-        </div>
-      )}
-      <div style={{ width: '100%', height: '100%' }}>
+    <div className="flex flex-col h-full">
+      <div className="flex-1 relative">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -123,17 +132,27 @@ const Flow: React.FC = () => {
           nodeTypes={nodeTypes}
           fitView
         >
-          <Background variant={BackgroundVariant.Dots} gap={12} size={1} />
           <Controls />
+          <Background />
         </ReactFlow>
+      </div>
+      <div className="p-4">
+        <button
+          onClick={handleGenerate}
+          disabled={isProcessingState}
+          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+        >
+          {isProcessingState ? 'Generating...' : 'Generate'}
+        </button>
+        {error && <div className="text-red-500 mt-2">{error}</div>}
       </div>
     </div>
   );
 };
 
-const AIFlowVisualization: React.FC = () => (
+const AIFlowVisualization: React.FC<Props> = ({ agentOrchestrationService }) => (
   <ReactFlowProvider>
-    <Flow />
+    <Flow agentOrchestrationService={agentOrchestrationService} />
   </ReactFlowProvider>
 );
 

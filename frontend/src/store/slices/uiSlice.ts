@@ -1,47 +1,48 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-interface UiState {
-  sidebarOpen: boolean;
-  currentPage: string;
-  theme: 'light' | 'dark';
+interface UIState {
+  isAIAssistantVisible: boolean;
+  isSidebarOpen: boolean;
+  activeTab: string;
   showAIAssistant: boolean;
+  sidebarOpen: boolean;
 }
 
-const initialState: UiState = {
-  sidebarOpen: true,
-  currentPage: '',
-  theme: 'light',
+const initialState: UIState = {
+  isAIAssistantVisible: false,
+  isSidebarOpen: true,
+  activeTab: 'dashboard',
   showAIAssistant: false,
+  sidebarOpen: true
 };
 
 const uiSlice = createSlice({
   name: 'ui',
   initialState,
   reducers: {
-    toggleSidebar: (state) => {
-      state.sidebarOpen = !state.sidebarOpen;
-    },
-    setCurrentPage: (state, action: PayloadAction<string>) => {
-      state.currentPage = action.payload;
-    },
-    toggleTheme: (state) => {
-      state.theme = state.theme === 'light' ? 'dark' : 'light';
-    },
     setAIAssistantVisibility: (state, action: PayloadAction<boolean>) => {
+      state.isAIAssistantVisible = action.payload;
       state.showAIAssistant = action.payload;
     },
     resetAIAssistantVisibility: (state) => {
+      state.isAIAssistantVisible = false;
       state.showAIAssistant = false;
     },
-  },
+    toggleSidebar: (state) => {
+      state.isSidebarOpen = !state.isSidebarOpen;
+      state.sidebarOpen = !state.sidebarOpen;
+    },
+    setActiveTab: (state, action: PayloadAction<string>) => {
+      state.activeTab = action.payload;
+    }
+  }
 });
 
 export const { 
-  toggleSidebar, 
-  setCurrentPage, 
-  toggleTheme, 
   setAIAssistantVisibility, 
-  resetAIAssistantVisibility 
+  resetAIAssistantVisibility, 
+  toggleSidebar, 
+  setActiveTab 
 } = uiSlice.actions;
 
 export default uiSlice.reducer;

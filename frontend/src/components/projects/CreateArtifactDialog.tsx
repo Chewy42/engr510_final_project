@@ -1,5 +1,4 @@
 import React from 'react';
-import { useAppDispatch } from '../../hooks/redux';
 import {
   Dialog,
   DialogTitle,
@@ -7,48 +6,31 @@ import {
   DialogActions,
   Button,
   TextField,
-  FormControl,
-  InputLabel,
-  Select,
   MenuItem,
-  Box,
+  Box
 } from '@mui/material';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { ArtifactType } from '../../types/project.types';
 import { createProjectArtifact } from '../../store/slices/projectSlice';
+import { useAppDispatch } from '../../store/hooks';
 
 interface CreateArtifactDialogProps {
   open: boolean;
   onClose: () => void;
-  projectId: number;
-}
-
-interface CreateArtifactRequest {
-  type: ArtifactType;
-  content: string;
+  projectId: string;
 }
 
 const validationSchema = yup.object({
-  type: yup
-    .string()
-    .oneOf(['requirements', 'wbs', 'gantt', 'risk_matrix', 'documentation'] as ArtifactType[])
-    .required('Artifact type is required'),
+  type: yup.string().required('Artifact type is required'),
   content: yup.string().required('Content is required'),
+  status: yup.string().required('Status is required')
 });
-
-const artifactTypeLabels: Record<ArtifactType, string> = {
-  requirements: 'Requirements Document',
-  wbs: 'Work Breakdown Structure',
-  gantt: 'Gantt Chart',
-  risk_matrix: 'Risk Matrix',
-  documentation: 'Documentation',
-};
 
 const CreateArtifactDialog: React.FC<CreateArtifactDialogProps> = ({
   open,
   onClose,
-  projectId,
+  projectId
 }) => {
   const dispatch = useAppDispatch();
 
@@ -56,77 +38,77 @@ const CreateArtifactDialog: React.FC<CreateArtifactDialogProps> = ({
     initialValues: {
       type: '' as ArtifactType,
       content: '',
+      status: 'draft'
     },
     validationSchema,
-    onSubmit: async (values: CreateArtifactRequest) => {
+    onSubmit: async (values) => {
       try {
         await dispatch(
           createProjectArtifact({
             projectId,
-            data: values,
+            artifactData: values,
           })
         );
         onClose();
-        formik.resetForm();
       } catch (error) {
-        console.error('Error creating artifact:', error);
+        console.error('Failed to create artifact:', error);
       }
-    },
+    }
   });
 
-  const handleClose = () => {
-    formik.resetForm();
-    onClose();
-  };
-
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>Create New Artifact</DialogTitle>
       <form onSubmit={formik.handleSubmit}>
-        <DialogTitle>Create New Artifact</DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel id="type-label">Artifact Type</InputLabel>
-              <Select
-                labelId="type-label"
-                id="type"
-                name="type"
-                value={formik.values.type}
-                onChange={formik.handleChange}
-                error={formik.touched.type && Boolean(formik.errors.type)}
-                label="Artifact Type"
-              >
-                {Object.entries(artifactTypeLabels).map(([value, label]) => (
-                  <MenuItem key={value} value={value}>
-                    {label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              select
+              fullWidth
+              name="type"
+              label="Artifact Type"
+              value={formik.values.type}
+              onChange={formik.handleChange}
+              error={formik.touched.type && Boolean(formik.errors.type)}
+              helperText={formik.touched.type && formik.errors.type}
+            >
+              <MenuItem value="requirements">Requirements</MenuItem>
+              <MenuItem value="wbs">WBS</MenuItem>
+              <MenuItem value="gantt">Gantt Chart</MenuItem>
+              <MenuItem value="risk_matrix">Risk Matrix</MenuItem>
+              <MenuItem value="documentation">Documentation</MenuItem>
+            </TextField>
             <TextField
               fullWidth
-              id="content"
+              multiline
+              rows={4}
               name="content"
               label="Content"
-              multiline
-              rows={8}
               value={formik.values.content}
               onChange={formik.handleChange}
               error={formik.touched.content && Boolean(formik.errors.content)}
               helperText={formik.touched.content && formik.errors.content}
             />
+            <TextField
+              select
+              fullWidth
+              name="status"
+              label="Status"
+              value={formik.values.status}
+              onChange={formik.handleChange}
+              error={formik.touched.status && Boolean(formik.errors.status)}
+              helperText={formik.touched.status && formik.errors.status}
+            >
+              <MenuItem value="draft">Draft</MenuItem>
+              <MenuItem value="review">Review</MenuItem>
+              <MenuItem value="approved">Approved</MenuItem>
+            </TextField>
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            disabled={formik.isSubmitting}
-          >
-            Create Artifact
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="contained" color="primary">
+            Create
           </Button>
         </DialogActions>
       </form>

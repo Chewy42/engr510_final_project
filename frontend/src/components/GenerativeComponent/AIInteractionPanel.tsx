@@ -2,20 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { addMessage } from '../../store/slices/aiSlice';
-import { resetAIAssistantVisibility } from '../../store/slices/uiSlice';
+import { setAIAssistantVisibility } from '../../store/slices/uiSlice';
 import { wsService } from '../../services/wsInstance';
 
 const AIInteractionPanel: React.FC = () => {
   const dispatch = useDispatch();
   const [input, setInput] = useState('');
   const { messages, isProcessing, wsConnected } = useSelector((state: RootState) => state.ai);
+  const { isAIAssistantVisible } = useSelector((state: RootState) => state.ui);
 
   useEffect(() => {
     wsService.connect();
     // Cleanup function
     return () => {
       wsService.disconnect();
-      dispatch(resetAIAssistantVisibility());
+      dispatch(setAIAssistantVisibility(false));
     };
   }, [dispatch]);
 
@@ -32,6 +33,10 @@ const AIInteractionPanel: React.FC = () => {
     dispatch(addMessage(message));
     wsService.sendMessage(input.trim());
     setInput('');
+  };
+
+  const handleClose = () => {
+    dispatch(setAIAssistantVisibility(false));
   };
 
   return (

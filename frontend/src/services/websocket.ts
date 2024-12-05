@@ -1,6 +1,6 @@
 import { Store } from '@reduxjs/toolkit';
 import { setWsConnected, addMessage, setProcessing, updateTask } from '../store/slices/aiSlice';
-import { updateNodes, updateEdges } from '../store/slices/projectSlice';
+import { setNodes, setEdges } from '../store/slices/projectSlice';
 
 export class WebSocketService {
   private ws: WebSocket | null = null;
@@ -65,8 +65,8 @@ export class WebSocketService {
 
             // Update nodes and edges if data contains them
             if (message.data?.nodes && message.data?.edges) {
-              store.dispatch(updateNodes(message.data.nodes));
-              store.dispatch(updateEdges(message.data.edges));
+              store.dispatch(setNodes(message.data.nodes));
+              store.dispatch(setEdges(message.data.edges));
             }
             break;
 

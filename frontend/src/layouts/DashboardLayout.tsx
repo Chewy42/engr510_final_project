@@ -34,13 +34,17 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { logout } = useAuth();
-  const { sidebarOpen, showAIAssistant } = useSelector((state: RootState) => state.ui);
+  const { isSidebarOpen: sidebarOpen, isAIAssistantVisible: showAIAssistant } = useSelector((state: RootState) => state.ui);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const location = useLocation();
 
   const handleSignOut = async () => {
     logout();
     navigate('/', { replace: true });
+  };
+
+  const handleToggleSidebar = () => {
+    dispatch(toggleSidebar());
   };
 
   return (

@@ -16,16 +16,42 @@ class TaskQueue {
         
         this.processing = true;
         const task = this.queue[0];
+        let retryCount = 0;
+        const maxRetries = 3;
 
-        try {
-            await task.execute();
-            this.queue.shift(); // Remove completed task
-            
-            if (task.children) {
-                task.children.forEach(childTask => this.addTask(childTask));
+        while (retryCount < maxRetries) {
+            try {
+                await task.execute();
+                this.queue.shift(); // Remove completed task
+                
+                if (task.children) {
+                    task.children.forEach(childTask => this.addTask(childTask));
+                }
+                break; // Success, exit retry loop
+            } catch (error) {
+                console.error('Error processing task:', error);
+                retryCount++;
+                
+                // Notify client of the error
+                task.emitUpdate({ 
+                    status: 'error',
+                    message: error.message,
+                    retryCount,
+                    willRetry: retryCount < maxRetries
+                });
+
+                if (retryCount < maxRetries) {
+                    // Wait before retrying (exponential backoff)
+                    await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount)));
+                } else {
+                    // Max retries reached, remove the task
+                    this.queue.shift();
+                    task.emitUpdate({
+                        status: 'failed',
+                        message: 'Task failed after maximum retries'
+                    });
+                }
             }
-        } catch (error) {
-            console.error('Error processing task:', error);
         }
 
         this.processing = false;

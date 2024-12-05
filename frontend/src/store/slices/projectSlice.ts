@@ -1,37 +1,6 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { Node, Edge } from 'reactflow';
-import { v4 as uuidv4 } from 'uuid';
-import {
-  Project,
-  ProjectArtifact,
-  AnalysisResult,
-  CreateProjectRequest,
-  UpdateProjectRequest,
-  CreateArtifactRequest,
-  CreateAnalysisRequest,
-} from '../../types/project.types';
-import * as projectService from '../../services/projectService';
-import { AppDispatch } from '../store';
-
-export interface ProjectState {
-  // Flow diagram state
-  nodes: Node[];
-  edges: Edge[];
-  prompt: string;
-  
-  // Project management state
-  projects: Project[];
-  currentProject: Project | null;
-  artifacts: ProjectArtifact[];
-  analyses: AnalysisResult[];
-  
-  // UI state
-  isLoading: boolean;
-  isProcessing: boolean;
-  error: string | null;
-  projectId: string | null;
-  isDirty: boolean;
-}
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
+import { ProjectState, Project, ProjectArtifact, AnalysisResult, CreateProjectRequest, CreateArtifactRequest, CreateAnalysisRequest, Node, Edge } from '../../types/project.types';
 
 const initialState: ProjectState = {
   // Flow diagram state
@@ -45,198 +14,112 @@ const initialState: ProjectState = {
   artifacts: [],
   analyses: [],
   
+  // Project creation state
+  projectName: '',
+  projectDescription: '',
+  
   // UI state
   isLoading: false,
   isProcessing: false,
   error: null,
   projectId: null,
-  isDirty: false,
+  isDirty: false
 };
 
-export const generateProjectStructure = createAsyncThunk<
-  { nodes: Node[]; edges: Edge[] },
-  string,
-  { dispatch: AppDispatch }
->(
-  'project/generateStructure',
-  async (prompt: string) => {
-    try {
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      // Create nodes with specific positions
-      const nodes: Node[] = [
-        {
-          id: uuidv4(),
-          type: 'requirement',
-          position: { x: 250, y: 0 },
-          data: { label: 'Project Overview' }
-        },
-        {
-          id: uuidv4(),
-          type: 'architecture',
-          position: { x: 100, y: 150 },
-          data: { label: 'Architecture' }
-        },
-        {
-          id: uuidv4(),
-          type: 'timeline',
-          position: { x: 250, y: 150 },
-          data: { label: 'Timeline' }
-        },
-        {
-          id: uuidv4(),
-          type: 'risk',
-          position: { x: 400, y: 150 },
-          data: { label: 'Risk Analysis' }
-        }
-      ];
-
-      // Create edges connecting nodes
-      const edges: Edge[] = [
-        {
-          id: uuidv4(),
-          source: nodes[0].id,
-          target: nodes[1].id,
-          type: 'smoothstep'
-        },
-        {
-          id: uuidv4(),
-          source: nodes[0].id,
-          target: nodes[2].id,
-          type: 'smoothstep'
-        },
-        {
-          id: uuidv4(),
-          source: nodes[0].id,
-          target: nodes[3].id,
-          type: 'smoothstep'
-        }
-      ];
-
-      return { nodes, edges };
-    } catch (error) {
-      throw new Error('Failed to generate project structure');
-    }
-  }
-);
-
-export const saveProject = createAsyncThunk<
-  { success: boolean },
-  void,
-  { dispatch: AppDispatch }
->(
-  'project/save',
-  async (_, { getState }) => {
-    try {
-      // Simulate saving project
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return {
-        success: true,
-      };
-    } catch (error) {
-      throw new Error('Failed to save project');
-    }
-  }
-);
-
-export const fetchProjects = createAsyncThunk<
-  Project[],
-  void,
-  { dispatch: AppDispatch }
->(
+// Async thunks
+export const fetchProjects = createAsyncThunk(
   'project/fetchProjects',
-  async () => {
-    return await projectService.getProjects();
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await axios.get('/api/projects');
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch projects');
+    }
   }
 );
 
-export const fetchProject = createAsyncThunk<
-  Project,
-  number,
-  { dispatch: AppDispatch }
->(
+export const fetchProject = createAsyncThunk(
   'project/fetchProject',
-  async (projectId: number) => {
-    return await projectService.getProject(projectId);
+  async (projectId: string, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(`/api/projects/${projectId}`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch project');
+    }
   }
 );
 
-export const createNewProject = createAsyncThunk<
-  Project,
-  CreateProjectRequest,
-  { dispatch: AppDispatch }
->(
-  'project/createProject',
-  async (data: CreateProjectRequest) => {
-    return await projectService.createProject(data);
+export const createNewProject = createAsyncThunk(
+  'project/createNewProject',
+  async (projectData: CreateProjectRequest, { rejectWithValue }) => {
+    try {
+      const response = await axios.post('/api/projects', projectData);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to create project');
+    }
   }
 );
 
-export const updateExistingProject = createAsyncThunk<
-  Project,
-  { id: number; data: UpdateProjectRequest },
-  { dispatch: AppDispatch }
->(
-  'project/updateProject',
-  async ({ id, data }: { id: number; data: UpdateProjectRequest }) => {
-    return await projectService.updateProject(id, data);
+export const deleteExistingProject = createAsyncThunk(
+  'project/deleteExistingProject',
+  async (projectId: string, { rejectWithValue }) => {
+    try {
+      await axios.delete(`/api/projects/${projectId}`);
+      return projectId;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to delete project');
+    }
   }
 );
 
-export const deleteExistingProject = createAsyncThunk<
-  number,
-  number,
-  { dispatch: AppDispatch }
->(
-  'project/deleteProject',
-  async (id: number) => {
-    await projectService.deleteProject(id);
-    return id;
+export const fetchProjectArtifacts = createAsyncThunk(
+  'project/fetchProjectArtifacts',
+  async (projectId: string, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(`/api/projects/${projectId}/artifacts`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch artifacts');
+    }
   }
 );
 
-export const fetchProjectArtifacts = createAsyncThunk<
-  ProjectArtifact[],
-  number,
-  { dispatch: AppDispatch }
->(
-  'project/fetchArtifacts',
-  async (projectId: number) => {
-    return await projectService.getArtifacts(projectId);
+export const createProjectArtifact = createAsyncThunk(
+  'project/createProjectArtifact',
+  async ({ projectId, artifactData }: { projectId: string; artifactData: CreateArtifactRequest }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`/api/projects/${projectId}/artifacts`, artifactData);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to create artifact');
+    }
   }
 );
 
-export const createProjectArtifact = createAsyncThunk<
-  ProjectArtifact,
-  { projectId: number; data: CreateArtifactRequest },
-  { dispatch: AppDispatch }
->(
-  'project/createArtifact',
-  async ({ projectId, data }: { projectId: number; data: CreateArtifactRequest }) => {
-    return await projectService.createArtifact(projectId, data);
+export const fetchProjectAnalyses = createAsyncThunk(
+  'project/fetchProjectAnalyses',
+  async (projectId: string, { rejectWithValue }) => {
+    try {
+      const response = await axios.get(`/api/projects/${projectId}/analyses`);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch analyses');
+    }
   }
 );
 
-export const createProjectAnalysis = createAsyncThunk<
-  AnalysisResult,
-  { projectId: number; data: CreateAnalysisRequest },
-  { dispatch: AppDispatch }
->(
-  'project/createAnalysis',
-  async ({ projectId, data }: { projectId: number; data: CreateAnalysisRequest }) => {
-    return await projectService.createAnalysis(projectId, data);
-  }
-);
-
-export const fetchProjectAnalyses = createAsyncThunk<
-  AnalysisResult[],
-  number,
-  { dispatch: AppDispatch }
->(
-  'project/fetchAnalyses',
-  async (projectId: number) => {
-    return await projectService.getAnalyses(projectId);
+export const createProjectAnalysis = createAsyncThunk(
+  'project/createProjectAnalysis',
+  async ({ projectId, analysisData }: { projectId: string; analysisData: CreateAnalysisRequest }, { rejectWithValue }) => {
+    try {
+      const response = await axios.post(`/api/projects/${projectId}/analyses`, analysisData);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to create analysis');
+    }
   }
 );
 
@@ -244,108 +127,151 @@ const projectSlice = createSlice({
   name: 'project',
   initialState,
   reducers: {
-    updateNodes: (state, action: PayloadAction<Node[]>) => {
+    setNodes: (state, action) => {
       state.nodes = action.payload;
       state.isDirty = true;
     },
-    updateEdges: (state, action: PayloadAction<Edge[]>) => {
+    setEdges: (state, action) => {
       state.edges = action.payload;
       state.isDirty = true;
     },
-    setPrompt: (state, action: PayloadAction<string>) => {
+    setPrompt: (state, action) => {
       state.prompt = action.payload;
     },
-    resetProject: (state) => {
-      return initialState;
+    setProjectName: (state, action) => {
+      state.projectName = action.payload;
     },
-    clearCurrentProject: (state) => {
-      state.currentProject = null;
-      state.artifacts = [];
-      state.analyses = [];
+    setProjectDescription: (state, action) => {
+      state.projectDescription = action.payload;
     },
+    setIsDirty: (state, action) => {
+      state.isDirty = action.payload;
+    },
+    clearError: (state) => {
+      state.error = null;
+    }
   },
   extraReducers: (builder) => {
     builder
-      .addCase(generateProjectStructure.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(generateProjectStructure.fulfilled, (state, action: PayloadAction<{ nodes: Node[]; edges: Edge[] }>) => {
-        state.isLoading = false;
-        state.nodes = action.payload.nodes;
-        state.edges = action.payload.edges;
-        state.isDirty = false;
-      })
-      .addCase(generateProjectStructure.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.error.message || 'Failed to generate project';
-      })
-      .addCase(saveProject.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(saveProject.fulfilled, (state) => {
-        state.isLoading = false;
-        state.isDirty = false;
-      })
-      .addCase(saveProject.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.error.message || 'Failed to save project';
-      })
+      // Fetch Projects
       .addCase(fetchProjects.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchProjects.fulfilled, (state, action: PayloadAction<Project[]>) => {
+      .addCase(fetchProjects.fulfilled, (state, action) => {
         state.isLoading = false;
         state.projects = action.payload;
       })
       .addCase(fetchProjects.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.error.message || 'Failed to fetch projects';
+        state.error = action.payload as string;
       })
-      .addCase(fetchProject.fulfilled, (state, action: PayloadAction<Project>) => {
+      // Fetch Single Project
+      .addCase(fetchProject.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchProject.fulfilled, (state, action) => {
+        state.isLoading = false;
         state.currentProject = action.payload;
+        if (action.payload.flowData) {
+          state.nodes = action.payload.flowData.nodes;
+          state.edges = action.payload.flowData.edges;
+        }
       })
-      .addCase(createNewProject.fulfilled, (state, action: PayloadAction<Project>) => {
+      .addCase(fetchProject.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Create Project
+      .addCase(createNewProject.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(createNewProject.fulfilled, (state, action) => {
+        state.isLoading = false;
         state.projects.push(action.payload);
       })
-      .addCase(updateExistingProject.fulfilled, (state, action: PayloadAction<Project>) => {
-        const index = state.projects.findIndex(p => p.project_id === action.payload.project_id);
-        if (index !== -1) {
-          state.projects[index] = action.payload;
-        }
-        if (state.currentProject?.project_id === action.payload.project_id) {
-          state.currentProject = action.payload;
-        }
+      .addCase(createNewProject.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       })
-      .addCase(deleteExistingProject.fulfilled, (state, action: PayloadAction<number>) => {
-        state.projects = state.projects.filter(p => p.project_id !== action.payload);
-        if (state.currentProject?.project_id === action.payload) {
-          state.currentProject = null;
-        }
+      // Delete Project
+      .addCase(deleteExistingProject.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
       })
-      .addCase(fetchProjectArtifacts.fulfilled, (state, action: PayloadAction<ProjectArtifact[]>) => {
+      .addCase(deleteExistingProject.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.projects = state.projects.filter(project => project.project_id.toString() !== action.payload);
+      })
+      .addCase(deleteExistingProject.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Fetch Artifacts
+      .addCase(fetchProjectArtifacts.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchProjectArtifacts.fulfilled, (state, action) => {
+        state.isLoading = false;
         state.artifacts = action.payload;
       })
-      .addCase(createProjectArtifact.fulfilled, (state, action: PayloadAction<ProjectArtifact>) => {
+      .addCase(fetchProjectArtifacts.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Create Artifact
+      .addCase(createProjectArtifact.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(createProjectArtifact.fulfilled, (state, action) => {
+        state.isLoading = false;
         state.artifacts.push(action.payload);
       })
-      .addCase(fetchProjectAnalyses.fulfilled, (state, action: PayloadAction<AnalysisResult[]>) => {
+      .addCase(createProjectArtifact.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Fetch Analyses
+      .addCase(fetchProjectAnalyses.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchProjectAnalyses.fulfilled, (state, action) => {
+        state.isLoading = false;
         state.analyses = action.payload;
       })
-      .addCase(createProjectAnalysis.fulfilled, (state, action: PayloadAction<AnalysisResult>) => {
+      .addCase(fetchProjectAnalyses.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Create Analysis
+      .addCase(createProjectAnalysis.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(createProjectAnalysis.fulfilled, (state, action) => {
+        state.isLoading = false;
         state.analyses.push(action.payload);
+      })
+      .addCase(createProjectAnalysis.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
-  },
+  }
 });
 
-export const {
-  updateNodes,
-  updateEdges,
-  setPrompt,
-  resetProject,
-  clearCurrentProject,
+export const { 
+  setNodes, 
+  setEdges, 
+  setPrompt, 
+  setProjectName,
+  setProjectDescription,
+  setIsDirty, 
+  clearError 
 } = projectSlice.actions;
 
 export default projectSlice.reducer;

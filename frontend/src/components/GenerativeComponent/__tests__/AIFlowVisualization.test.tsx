@@ -1,221 +1,285 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import AIFlowVisualization from '../AIFlowVisualization';
 import projectReducer from '../../../store/slices/projectSlice';
-import { aiAgentService } from '../../../services/aiAgentService';
-import { setCurrentAnalysis, setProcessing, setError } from '../../../store/slices/aiSlice';
 
 // Mock the ReactFlow component and hooks
-jest.mock('@xyflow/react', () => ({
-  ReactFlow: () => null,
-  Background: () => null,
-  Controls: () => null,
-  ReactFlowProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  useNodesState: () => [[], jest.fn(), jest.fn()],
-  useEdgesState: () => [[], jest.fn(), jest.fn()],
-  addEdge: jest.fn()
-}));
+const mockSetNodes = jest.fn();
+const mockSetEdges = jest.fn();
+const mockOnNodesChange = jest.fn();
+const mockOnEdgesChange = jest.fn();
 
-// Mock the aiAgentService
-jest.mock('../../../services/aiAgentService', () => ({
-  aiAgentService: {
-    generateProjectPlan: jest.fn()
-  }
-}));
+jest.mock('@xyflow/react', () => {
+  const store = {
+    getState: () => ({
+      nodes: [],
+      edges: [],
+      nodeInternals: new Map(),
+      selectedNodes: [],
+      selectedEdges: []
+    }),
+    subscribe: () => () => {},
+    dispatch: () => {}
+  };
 
-const mockProject = {
-  id: '123',
-  name: 'Test Project',
-  description: 'A test project',
-  methodology: 'agile' as const,
-  status: 'active',
-  owner_id: '123e4567-e89b-12d3-a456-426614174000',
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString()
+  return {
+    ReactFlow: ({ nodes, edges }) => (
+      <div data-testid="react-flow">
+        {nodes?.map(node => (
+          <div key={node.id} data-testid={`node-${node.id}`} className="react-flow__node">
+            <div>{node.data.label}</div>
+            <div>{node.data.description}</div>
+            {node.data.priority && (
+              <div>Priority: {node.data.priority}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    ),
+    useNodesState: () => [[], mockSetNodes, mockOnNodesChange],
+    useEdgesState: () => [[], mockSetEdges, mockOnEdgesChange],
+    ReactFlowProvider: ({ children }) => <div>{children}</div>,
+    Background: () => null,
+    Controls: () => null,
+  };
+});
+
+// Mock artifacts data
+const mockArtifacts = {
+  nodes: [
+    {
+      id: '1',
+      type: 'requirement',
+      data: { label: 'Requirement 1' },
+      position: { x: 0, y: 0 }
+    },
+    {
+      id: '2',
+      type: 'architecture',
+      data: { label: 'Architecture 1' },
+      position: { x: 100, y: 0 }
+    }
+  ],
+  edges: [
+    {
+      id: 'e1-2',
+      source: '1',
+      target: '2',
+      type: 'default'
+    }
+  ]
 };
 
-const renderWithRedux = (component: React.ReactElement) => {
-  const store = configureStore({
-    reducer: {
-      project: projectReducer,
-      ai: (state = { currentAnalysis: null, isProcessing: false, error: null }, action) => {
-        switch (action.type) {
-          case 'setCurrentAnalysis':
-            return { ...state, currentAnalysis: action.payload };
-          case 'setProcessing':
-            return { ...state, isProcessing: action.payload };
-          case 'setError':
-            return { ...state, error: action.payload };
-          default:
-            return state;
+jest.mock('../utils/nodePositioning', () => ({
+  calculateNodePositions: jest.fn((nodes: any[], edges: any[]) => {
+    return nodes.map((node: any) => ({
+      ...node,
+      position: { x: 0, y: 0 }
+    }));
+  })
+}));
+
+const mockAgentOrchestrationService = {
+  generateArtifacts: jest.fn().mockResolvedValue({
+    nodes: [
+      {
+        id: '1',
+        type: 'requirement',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'Test Node',
+          description: 'Test Description',
+          priority: 'High'
         }
       }
-    },
-    preloadedState: {
-      project: {
-        currentProject: mockProject,
-        isProcessing: false,
-        error: null,
-      },
-      ai: {
-        currentAnalysis: null,
-        isProcessing: false,
-        error: null
-      }
-    },
-  });
+    ],
+    edges: []
+  }),
+  getArtifacts: jest.fn().mockResolvedValue({
+    nodes: [],
+    edges: []
+  }),
+  executeAnalysis: jest.fn().mockResolvedValue({
+    nodes: [],
+    edges: []
+  })
+};
 
+const mockProject = {
+  project_id: '123',
+  name: 'Test Project',
+  description: 'Test Description'
+};
+
+const store = configureStore({
+  reducer: {
+    project: projectReducer
+  },
+  preloadedState: {
+    project: {
+      currentProject: mockProject,
+      projects: [mockProject],
+      loading: false,
+      error: null
+    }
+  }
+});
+
+const renderAIFlowVisualization = (props = {}) => {
   return render(
     <Provider store={store}>
-      {component}
+      <AIFlowVisualization 
+        agentOrchestrationService={mockAgentOrchestrationService} 
+        {...props} 
+      />
     </Provider>
   );
 };
 
 describe('AIFlowVisualization', () => {
-  it('shows generate button in initial state', () => {
-    renderWithRedux(<AIFlowVisualization />);
-    expect(screen.getByText(/generate/i)).toBeInTheDocument();
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-  it('shows loading state while generating', async () => {
-    const store = configureStore({
-      reducer: {
-        project: projectReducer,
-        ai: (state = { currentAnalysis: null, isProcessing: false, error: null }, action) => {
-          switch (action.type) {
-            case 'setCurrentAnalysis':
-              return { ...state, currentAnalysis: action.payload };
-            case 'setProcessing':
-              return { ...state, isProcessing: action.payload };
-            case 'setError':
-              return { ...state, error: action.payload };
-            default:
-              return state;
-          }
-        }
-      },
-      preloadedState: {
-        project: {
-          currentProject: mockProject,
-          isProcessing: true,
-          error: null,
-        },
-        ai: {
-          currentAnalysis: null,
-          isProcessing: true,
-          error: null
-        }
-      },
-    });
+  it('renders without crashing', () => {
+    const { getByTestId } = renderAIFlowVisualization();
+    expect(getByTestId('react-flow')).toBeInTheDocument();
+  });
 
-    render(
-      <Provider store={store}>
-        <AIFlowVisualization />
-      </Provider>
-    );
+  it('handles generate button click', async () => {
+    const { getByRole, getByTestId } = renderAIFlowVisualization();
+    const generateButton = getByRole('button', { name: /generate/i });
 
+    expect(generateButton).toBeEnabled();
+    fireEvent.click(generateButton);
+    expect(generateButton).toBeDisabled();
+    
     await waitFor(() => {
-      expect(screen.getByText(/generating/i)).toBeInTheDocument();
+      expect(mockAgentOrchestrationService.generateArtifacts).toHaveBeenCalledTimes(1);
+      expect(generateButton).toHaveTextContent('Generate');
+      expect(generateButton).not.toBeDisabled();
     });
   });
 
-  it('handles successful project generation', async () => {
-    const store = configureStore({
-      reducer: {
-        project: projectReducer,
-        ai: (state = { currentAnalysis: null, isProcessing: false, error: null }, action) => {
-          switch (action.type) {
-            case 'setCurrentAnalysis':
-              return { ...state, currentAnalysis: action.payload };
-            case 'setProcessing':
-              return { ...state, isProcessing: action.payload };
-            case 'setError':
-              return { ...state, error: action.payload };
-            default:
-              return state;
-          }
-        }
-      },
-      preloadedState: {
-        project: {
-          currentProject: {
-            ...mockProject,
-            analysis: {
-              requirements: [],
-              architecture: [],
-              timeline: [],
-              risks: []
-            }
-          },
-          isProcessing: false,
-          error: null,
-        },
-        ai: {
-          currentAnalysis: {
-            requirements: [],
-            architecture: [],
-            timeline: [],
-            risks: []
-          },
-          isProcessing: false,
-          error: null
-        }
-      },
+  it('displays generated nodes', async () => {
+    const { getByRole, getByTestId } = renderAIFlowVisualization();
+    const generateButton = getByRole('button', { name: /generate/i });
+
+    await act(async () => {
+      fireEvent.click(generateButton);
+      await mockAgentOrchestrationService.generateArtifacts();
     });
 
-    render(
-      <Provider store={store}>
-        <AIFlowVisualization />
-      </Provider>
-    );
-
     await waitFor(() => {
-      expect(screen.getByText(/generate/i)).toBeInTheDocument();
+      expect(mockAgentOrchestrationService.generateArtifacts).toHaveBeenCalledTimes(1);
+      const node = getByTestId('node-1');
+      expect(node).toHaveTextContent('Test Node');
+      expect(node).toHaveTextContent('Test Description');
+      expect(node).toHaveTextContent('Priority: High');
     });
   });
 
   it('handles generation failure', async () => {
-    const store = configureStore({
-      reducer: {
-        project: projectReducer,
-        ai: (state = { currentAnalysis: null, isProcessing: false, error: null }, action) => {
-          switch (action.type) {
-            case 'setCurrentAnalysis':
-              return { ...state, currentAnalysis: action.payload };
-            case 'setProcessing':
-              return { ...state, isProcessing: action.payload };
-            case 'setError':
-              return { ...state, error: action.payload };
-            default:
-              return state;
-          }
-        }
-      },
-      preloadedState: {
-        project: {
-          currentProject: mockProject,
-          isProcessing: false,
-          error: null,
-        },
-        ai: {
-          currentAnalysis: null,
-          isProcessing: false,
-          error: 'Failed to generate project'
-        }
-      },
+    mockAgentOrchestrationService.generateArtifacts.mockRejectedValueOnce(new Error('Failed to generate'));
+    
+    const { getByRole, getByText } = renderAIFlowVisualization();
+    const generateButton = getByRole('button', { name: /generate/i });
+    
+    await act(async () => {
+      fireEvent.click(generateButton);
     });
 
-    render(
-      <Provider store={store}>
-        <AIFlowVisualization />
+    await waitFor(() => {
+      expect(generateButton).not.toBeDisabled();
+      expect(getByText('Failed to load artifacts')).toBeInTheDocument();
+    });
+  });
+
+  it('loads artifacts when project changes', async () => {
+    mockAgentOrchestrationService.getArtifacts.mockResolvedValueOnce(mockArtifacts);
+    
+    const { rerender } = renderAIFlowVisualization();
+    
+    await waitFor(() => {
+      expect(mockAgentOrchestrationService.getArtifacts).toHaveBeenCalledWith('123');
+    });
+
+    // Update project and verify artifacts are reloaded
+    const newProject = { ...mockProject, project_id: '456' };
+    const newStore = configureStore({
+      reducer: { project: projectReducer },
+      preloadedState: {
+        project: {
+          currentProject: newProject,
+          projects: [newProject],
+          loading: false,
+          error: null
+        }
+      }
+    });
+
+    rerender(
+      <Provider store={newStore}>
+        <AIFlowVisualization agentOrchestrationService={mockAgentOrchestrationService} />
       </Provider>
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to generate project/i)).toBeInTheDocument();
+      expect(mockAgentOrchestrationService.getArtifacts).toHaveBeenCalledWith('456');
+    });
+  });
+
+  it('handles artifact loading failure', async () => {
+    mockAgentOrchestrationService.getArtifacts.mockRejectedValueOnce(new Error('Failed to load'));
+    
+    const { getByText } = renderAIFlowVisualization();
+    
+    await waitFor(() => {
+      expect(getByText('Failed to load artifacts')).toBeInTheDocument();
+    });
+  });
+
+  it('handles empty artifact response', async () => {
+    mockAgentOrchestrationService.getArtifacts.mockResolvedValueOnce({
+      nodes: [],
+      edges: []
+    });
+    
+    renderAIFlowVisualization();
+    
+    await waitFor(() => {
+      expect(mockSetNodes).toHaveBeenCalledWith([]);
+      expect(mockSetEdges).toHaveBeenCalledWith([]);
+    });
+  });
+
+  it('handles invalid artifact response', async () => {
+    mockAgentOrchestrationService.getArtifacts.mockResolvedValueOnce({
+      // Missing nodes and edges properties
+      invalidProp: true
+    });
+    
+    const { getByText } = renderAIFlowVisualization();
+    
+    await waitFor(() => {
+      expect(getByText('Failed to load artifacts')).toBeInTheDocument();
+    });
+  });
+
+  it('handles concurrent generate requests', async () => {
+    const { getByRole } = renderAIFlowVisualization();
+    const generateButton = getByRole('button', { name: /generate/i });
+
+    // Click generate button multiple times rapidly
+    fireEvent.click(generateButton);
+    fireEvent.click(generateButton);
+    fireEvent.click(generateButton);
+
+    await waitFor(() => {
+      // Should only call generate once while processing
+      expect(mockAgentOrchestrationService.generateArtifacts).toHaveBeenCalledTimes(1);
     });
   });
 });

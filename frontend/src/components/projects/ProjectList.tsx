@@ -45,7 +45,7 @@ const ProjectList: React.FC = () => {
   const navigate = useNavigate();
   const [createDialogOpen, setCreateDialogOpen] = React.useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
-  const [selectedProjectId, setSelectedProjectId] = React.useState<number | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = React.useState<string | null>(null);
 
   const { projects, isLoading, error } = useAppSelector((state: RootState) => state.project);
 
@@ -66,7 +66,7 @@ const ProjectList: React.FC = () => {
   };
 
   const handleDeleteClick = (projectId: number) => {
-    setSelectedProjectId(projectId);
+    setSelectedProjectId(projectId.toString());
     setDeleteDialogOpen(true);
   };
 

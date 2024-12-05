@@ -8,7 +8,8 @@ jest.mock('@xyflow/react', () => ({
   Position: {
     Top: 'top',
     Bottom: 'bottom'
-  }
+  },
+  ReactFlowProvider: ({ children }) => children
 }));
 
 describe('CustomNodes', () => {
