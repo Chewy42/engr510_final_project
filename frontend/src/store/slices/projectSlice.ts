@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Node, Edge } from 'reactflow';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Project,
   ProjectArtifact,
@@ -11,7 +12,6 @@ import {
 } from '../../types/project.types';
 import * as projectService from '../../services/projectService';
 import { AppDispatch } from '../store';
-import { wsService } from '../../services/wsInstance'; // Import WebSocket service
 
 export interface ProjectState {
   // Flow diagram state
@@ -59,19 +59,62 @@ export const generateProjectStructure = createAsyncThunk<
   { dispatch: AppDispatch }
 >(
   'project/generateStructure',
-  async (prompt: string, { dispatch }) => {
+  async (prompt: string) => {
     try {
-      // Send message through WebSocket to start generation
-      wsService.sendMessage(JSON.stringify({
-        type: 'generate_project',
-        prompt: prompt
-      }));
-      
-      // Return empty arrays initially - the WebSocket messages will update the state
-      return {
-        nodes: [],
-        edges: [],
-      };
+      // Simulate API delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Create nodes with specific positions
+      const nodes: Node[] = [
+        {
+          id: uuidv4(),
+          type: 'requirement',
+          position: { x: 250, y: 0 },
+          data: { label: 'Project Overview' }
+        },
+        {
+          id: uuidv4(),
+          type: 'architecture',
+          position: { x: 100, y: 150 },
+          data: { label: 'Architecture' }
+        },
+        {
+          id: uuidv4(),
+          type: 'timeline',
+          position: { x: 250, y: 150 },
+          data: { label: 'Timeline' }
+        },
+        {
+          id: uuidv4(),
+          type: 'risk',
+          position: { x: 400, y: 150 },
+          data: { label: 'Risk Analysis' }
+        }
+      ];
+
+      // Create edges connecting nodes
+      const edges: Edge[] = [
+        {
+          id: uuidv4(),
+          source: nodes[0].id,
+          target: nodes[1].id,
+          type: 'smoothstep'
+        },
+        {
+          id: uuidv4(),
+          source: nodes[0].id,
+          target: nodes[2].id,
+          type: 'smoothstep'
+        },
+        {
+          id: uuidv4(),
+          source: nodes[0].id,
+          target: nodes[3].id,
+          type: 'smoothstep'
+        }
+      ];
+
+      return { nodes, edges };
     } catch (error) {
       throw new Error('Failed to generate project structure');
     }
@@ -86,8 +129,8 @@ export const saveProject = createAsyncThunk<
   'project/save',
   async (_, { getState }) => {
     try {
-      // TODO: Implement API call to save project
-      // This would save the current state to your backend
+      // Simulate saving project
+      await new Promise(resolve => setTimeout(resolve, 1000));
       return {
         success: true,
       };

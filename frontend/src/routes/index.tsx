@@ -19,6 +19,7 @@ const ProjectGenerationPage = lazy(() => import('../pages/ProjectGeneration'));
 const FileGenerationPage = lazy(() => import('../pages/FileGenerationPage'));
 const NewProject = lazy(() => import('../pages/NewProject'));
 const Files = lazy(() => import('../pages/Files'));
+const Settings = lazy(() => import('../pages/Settings'));
 
 const AppRoutes = () => {
   return (
@@ -49,6 +50,7 @@ const AppRoutes = () => {
           <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="ai" element={<AIAssistant />} />
           <Route path="generate" element={<ProjectGenerationPage />} />
+          <Route path="settings" element={<Settings />} />
           <Route path="files" element={<Files />} />
           <Route path="file-generation" element={<FileGenerationPage />} />
           <Route path="*" element={<NotFound />} />

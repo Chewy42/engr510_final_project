@@ -6,8 +6,7 @@ import ReactFlow, {
   Edge,
   ConnectionMode,
   Panel,
-  useNodesState,
-  useEdgesState,
+  ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useSelector } from 'react-redux';
@@ -15,23 +14,19 @@ import { RootState, useAppDispatch } from '../../store';
 import { generateProjectStructure, saveProject, updateNodes, updateEdges } from '../../store/slices/projectSlice';
 import { setAIAssistantVisibility } from '../../store/slices/uiSlice';
 import CustomNode from '../../components/ProjectFlow/CustomNode';
-import { colors, transitions } from '../../styles/materialTheme';
+import { RequirementNode, ArchitectureNode, TimelineNode, RiskNode } from '../../components/GenerativeComponent/nodes/CustomNodes';
 
 const nodeTypes = {
   custom: CustomNode,
+  requirement: RequirementNode,
+  architecture: ArchitectureNode,
+  timeline: TimelineNode,
+  risk: RiskNode,
 };
 
-const NewProject: React.FC = () => {
+const Flow: React.FC = () => {
   const dispatch = useAppDispatch();
   const { nodes, edges, isLoading, error } = useSelector((state: RootState) => state.project);
-  const [prompt, setPrompt] = useState('');
-
-  useEffect(() => {
-    // Reset AI Assistant visibility when component unmounts
-    return () => {
-      dispatch(setAIAssistantVisibility(false));
-    };
-  }, [dispatch]);
 
   const onNodesChange = useCallback(
     (changes: any) => {
@@ -47,29 +42,53 @@ const NewProject: React.FC = () => {
     [dispatch]
   );
 
+  return (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      nodeTypes={nodeTypes}
+      connectionMode={ConnectionMode.Loose}
+      fitView
+    >
+      <Background />
+      <Controls />
+      <Panel position="bottom-right">
+        <button
+          onClick={() => dispatch(saveProject())}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          disabled={isLoading}
+        >
+          Save Project
+        </button>
+      </Panel>
+    </ReactFlow>
+  );
+};
+
+const NewProject: React.FC = () => {
+  const dispatch = useAppDispatch();
+  const { isLoading, error } = useSelector((state: RootState) => state.project);
+  const [prompt, setPrompt] = useState('');
+
+  useEffect(() => {
+    return () => {
+      dispatch(setAIAssistantVisibility(false));
+    };
+  }, [dispatch]);
+
   const handlePromptSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prompt.trim()) return;
 
     try {
-      // Show AI Assistant when generation starts
       dispatch(setAIAssistantVisibility(true));
-      const result = await dispatch(generateProjectStructure(prompt)).unwrap();
-      if (!result) {
-        dispatch(setAIAssistantVisibility(false));
-      }
+      await dispatch(generateProjectStructure(prompt)).unwrap();
     } catch (err) {
       console.error('Failed to generate project structure:', err);
-      // Hide AI Assistant if generation fails
+    } finally {
       dispatch(setAIAssistantVisibility(false));
-    }
-  };
-
-  const handleSave = async () => {
-    try {
-      await dispatch(saveProject()).unwrap();
-    } catch (err) {
-      console.error('Failed to save project:', err);
     }
   };
 
@@ -101,7 +120,7 @@ const NewProject: React.FC = () => {
                   focus:outline-none focus:ring-2 focus:ring-offset-2
                   ${
                     isLoading
-                      ? 'bg-gray-400 cursor-not-allowed'
+                      ? 'bg-gray-300 cursor-not-allowed'
                       : 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500'
                   }
                 `}
@@ -111,46 +130,22 @@ const NewProject: React.FC = () => {
               </button>
             </div>
           </form>
-          {error && (
-            <div className="text-red-600 bg-red-50 p-3 rounded-lg">
-              {error}
-            </div>
-          )}
         </div>
       </div>
 
-      {/* React Flow Canvas */}
-      <div className="flex-1 mx-2.5 my-2.5">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          nodeTypes={nodeTypes}
-          connectionMode={ConnectionMode.Loose}
-          fitView
-          className="bg-gray-100 rounded-lg shadow-inner"
-        >
-          <Background />
-          <Controls />
-          <Panel position="top-right" className="space-x-2">
-            <button
-              className={`
-                px-4 py-2 rounded-md shadow-sm transition-all duration-200
-                ${
-                  isLoading
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-white hover:shadow-md text-gray-700'
-                }
-              `}
-              onClick={handleSave}
-              disabled={isLoading}
-            >
-              Save Project
-            </button>
-          </Panel>
-        </ReactFlow>
+      {/* Flow Diagram Section */}
+      <div className="flex-1 relative">
+        <ReactFlowProvider>
+          <Flow />
+        </ReactFlowProvider>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div className="absolute bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <p>{error}</p>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Handle, Position } from '@xyflow/react';
+import { Handle, Position, ReactFlowProvider } from '@xyflow/react';
 
 interface CustomNodeProps {
   data: {
@@ -17,7 +17,7 @@ const nodeStyles = {
   border: '1px solid #ddd',
 };
 
-export const RequirementNode: React.FC<CustomNodeProps> = ({ data }) => (
+const RequirementNodeInner: React.FC<CustomNodeProps> = ({ data }) => (
   <div style={{ ...nodeStyles, borderLeft: '4px solid #2196f3' }}>
     <Handle type="target" position={Position.Top} />
     <div className="font-semibold">{data.title}</div>
@@ -31,7 +31,7 @@ export const RequirementNode: React.FC<CustomNodeProps> = ({ data }) => (
   </div>
 );
 
-export const ArchitectureNode: React.FC<CustomNodeProps> = ({ data }) => (
+const ArchitectureNodeInner: React.FC<CustomNodeProps> = ({ data }) => (
   <div style={{ ...nodeStyles, borderLeft: '4px solid #4caf50' }}>
     <Handle type="target" position={Position.Top} />
     <div className="font-semibold">{data.title}</div>
@@ -45,7 +45,7 @@ export const ArchitectureNode: React.FC<CustomNodeProps> = ({ data }) => (
   </div>
 );
 
-export const TimelineNode: React.FC<CustomNodeProps> = ({ data }) => (
+const TimelineNodeInner: React.FC<CustomNodeProps> = ({ data }) => (
   <div style={{ ...nodeStyles, borderLeft: '4px solid #ff9800' }}>
     <Handle type="target" position={Position.Top} />
     <div className="font-semibold">{data.title}</div>
@@ -59,7 +59,7 @@ export const TimelineNode: React.FC<CustomNodeProps> = ({ data }) => (
   </div>
 );
 
-export const RiskNode: React.FC<CustomNodeProps> = ({ data }) => (
+const RiskNodeInner: React.FC<CustomNodeProps> = ({ data }) => (
   <div style={{ ...nodeStyles, borderLeft: '4px solid #f44336' }}>
     <Handle type="target" position={Position.Top} />
     <div className="font-semibold">{data.title}</div>
@@ -74,4 +74,28 @@ export const RiskNode: React.FC<CustomNodeProps> = ({ data }) => (
     </div>
     <Handle type="source" position={Position.Bottom} />
   </div>
+);
+
+export const RequirementNode: React.FC<CustomNodeProps> = (props) => (
+  <ReactFlowProvider>
+    <RequirementNodeInner {...props} />
+  </ReactFlowProvider>
+);
+
+export const ArchitectureNode: React.FC<CustomNodeProps> = (props) => (
+  <ReactFlowProvider>
+    <ArchitectureNodeInner {...props} />
+  </ReactFlowProvider>
+);
+
+export const TimelineNode: React.FC<CustomNodeProps> = (props) => (
+  <ReactFlowProvider>
+    <TimelineNodeInner {...props} />
+  </ReactFlowProvider>
+);
+
+export const RiskNode: React.FC<CustomNodeProps> = (props) => (
+  <ReactFlowProvider>
+    <RiskNodeInner {...props} />
+  </ReactFlowProvider>
 );
