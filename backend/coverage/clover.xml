@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<coverage generated="1733424378490" clover="3.2.0">
-  <project timestamp="1733424378490" name="All files">
-    <metrics statements="100" coveredstatements="84" conditionals="29" coveredconditionals="26" methods="26" coveredmethods="17" elements="155" coveredelements="127" complexity="0" loc="100" ncloc="100" packages="6" files="8" classes="8"/>
+<coverage generated="1733446352092" clover="3.2.0">
+  <project timestamp="1733446352092" name="All files">
+    <metrics statements="100" coveredstatements="84" conditionals="27" coveredconditionals="24" methods="26" coveredmethods="17" elements="153" coveredelements="125" complexity="0" loc="100" ncloc="100" packages="6" files="8" classes="8"/>
     <package name="agents">
       <metrics statements="12" coveredstatements="7" conditionals="2" coveredconditionals="1" methods="10" coveredmethods="6"/>
       <file name="index.js" path="/Users/matt/Documents/GithubRepos/engr510_final_project/backend/src/agents/index.js">
@@ -58,7 +58,7 @@
       </file>
     </package>
     <package name="middleware">
-      <metrics statements="38" coveredstatements="38" conditionals="14" coveredconditionals="14" methods="7" coveredmethods="7"/>
+      <metrics statements="38" coveredstatements="38" conditionals="12" coveredconditionals="12" methods="7" coveredmethods="7"/>
       <file name="errorHandler.js" path="/Users/matt/Documents/GithubRepos/engr510_final_project/backend/src/middleware/errorHandler.js">
         <metrics statements="15" coveredstatements="15" conditionals="10" coveredconditionals="10" methods="2" coveredmethods="2"/>
         <line num="4" count="3" type="stmt"/>
@@ -78,20 +78,20 @@
         <line num="43" count="1" type="stmt"/>
       </file>
       <file name="security.js" path="/Users/matt/Documents/GithubRepos/engr510_final_project/backend/src/middleware/security.js">
-        <metrics statements="13" coveredstatements="13" conditionals="2" coveredconditionals="2" methods="1" coveredmethods="1"/>
+        <metrics statements="13" coveredstatements="13" conditionals="0" coveredconditionals="0" methods="1" coveredmethods="1"/>
         <line num="1" count="1" type="stmt"/>
         <line num="2" count="1" type="stmt"/>
         <line num="3" count="1" type="stmt"/>
         <line num="5" count="1" type="stmt"/>
         <line num="7" count="4" type="stmt"/>
-        <line num="10" count="4" type="stmt"/>
-        <line num="17" count="4" type="stmt"/>
-        <line num="20" count="4" type="stmt"/>
+        <line num="13" count="4" type="stmt"/>
         <line num="21" count="4" type="stmt"/>
+        <line num="24" count="4" type="stmt"/>
         <line num="25" count="4" type="stmt"/>
-        <line num="28" count="4" type="stmt"/>
         <line num="29" count="4" type="stmt"/>
-        <line num="32" count="1" type="stmt"/>
+        <line num="32" count="4" type="stmt"/>
+        <line num="33" count="4" type="stmt"/>
+        <line num="36" count="1" type="stmt"/>
       </file>
       <file name="validation.js" path="/Users/matt/Documents/GithubRepos/engr510_final_project/backend/src/middleware/validation.js">
         <metrics statements="10" coveredstatements="10" conditionals="2" coveredconditionals="2" methods="4" coveredmethods="4"/>

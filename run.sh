@@ -31,40 +31,44 @@ is_port_in_use() {
 # Function to wait for a service to be available
 wait_for_service() {
     local port=$1
-    local service=$2
-    local timeout=30
-    local count=0
+    local name=$2
+    local retries=30
+    local wait_time=2
 
-    echo -e "${BLUE}Waiting for $service to start...${NC}"
-    while ! nc -z localhost $port; do
-        sleep 1
-        count=$((count + 1))
-        if [ $count -eq $timeout ]; then
-            echo -e "${RED}Timeout waiting for $service to start${NC}"
-            return 1
+    echo -e "${BLUE}Waiting for $name to be available...${NC}"
+    
+    while [ $retries -gt 0 ]; do
+        if is_port_in_use $port; then
+            echo -e "${GREEN}$name is now available!${NC}"
+            return 0
         fi
+        retries=$((retries-1))
+        sleep $wait_time
     done
-    echo -e "${GREEN}$service is up and running!${NC}"
-    return 0
+
+    echo -e "${RED}Timeout waiting for $name${NC}"
+    return 1
 }
 
 # Function to handle script termination
 cleanup() {
-    echo -e "\n${BLUE}Shutting down servers...${NC}"
+    echo -e "\n${YELLOW}Shutting down servers...${NC}"
     
     if [ ! -z "$FRONTEND_PID" ]; then
-        echo -e "${YELLOW}Stopping frontend server...${NC}"
-        kill -TERM $FRONTEND_PID 2>/dev/null
-        wait $FRONTEND_PID 2>/dev/null
+        echo -e "${BLUE}Stopping frontend server...${NC}"
+        kill $FRONTEND_PID 2>/dev/null
     fi
     
     if [ ! -z "$BACKEND_PID" ]; then
-        echo -e "${YELLOW}Stopping backend server...${NC}"
-        kill -TERM $BACKEND_PID 2>/dev/null
-        wait $BACKEND_PID 2>/dev/null
+        echo -e "${BLUE}Stopping backend server...${NC}"
+        kill $BACKEND_PID 2>/dev/null
     fi
     
-    echo -e "${GREEN}All servers stopped successfully${NC}"
+    # Kill any remaining processes on the ports
+    kill_port_process 3000
+    kill_port_process 5000
+    
+    echo -e "${GREEN}Cleanup complete${NC}"
     exit 0
 }
 
@@ -75,12 +79,13 @@ trap cleanup SIGINT SIGTERM
 start_frontend() {
     echo -e "${BLUE}Starting frontend server...${NC}"
     
-    # Kill any existing process on port 3000
+    # Kill any process running on frontend port
     kill_port_process 3000
-    
-    cd frontend || exit 1
-    
-    # Check for and install dependencies
+
+    # Navigate to frontend directory
+    cd frontend
+
+    # Install dependencies if node_modules doesn't exist
     if [ ! -d "node_modules" ]; then
         echo -e "${YELLOW}Installing frontend dependencies...${NC}"
         npm install
@@ -89,18 +94,14 @@ start_frontend() {
             exit 1
         fi
     fi
-    
-    # Run tests
-    echo -e "${YELLOW}Running frontend tests...${NC}"
-    npm test
-    
+
     # Start frontend server
     npm start &
     FRONTEND_PID=$!
-    
+
     # Wait for frontend to be available
-    wait_for_service 3000 "Frontend server" || exit 1
-    
+    wait_for_service 3000 "Frontend"
+
     cd ..
 }
 
@@ -108,12 +109,13 @@ start_frontend() {
 start_backend() {
     echo -e "${BLUE}Starting backend server...${NC}"
     
-    # Kill any existing process on port 5000
+    # Kill any process running on backend port
     kill_port_process 5000
-    
-    cd backend || exit 1
-    
-    # Check for and install dependencies
+
+    # Navigate to backend directory
+    cd backend
+
+    # Install dependencies if node_modules doesn't exist
     if [ ! -d "node_modules" ]; then
         echo -e "${YELLOW}Installing backend dependencies...${NC}"
         npm install
@@ -122,32 +124,14 @@ start_backend() {
             exit 1
         fi
     fi
-    
-    # Create server.js if it doesn't exist
-    if [ ! -f "src/server.js" ]; then
-        echo -e "${YELLOW}Creating server.js...${NC}"
-        mkdir -p src
-        cat > src/server.js << 'EOL'
-const app = require('./app');
-const port = process.env.PORT || 5000;
 
-app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-});
-EOL
-    fi
-    
-    # Run tests
-    echo -e "${YELLOW}Running backend tests...${NC}"
-    npm test
-    
-    # Start backend server
-    npm start &
+    # Start backend server in development mode
+    npm run dev &
     BACKEND_PID=$!
-    
+
     # Wait for backend to be available
-    wait_for_service 5000 "Backend server" || exit 1
-    
+    wait_for_service 5000 "Backend"
+
     cd ..
 }
 

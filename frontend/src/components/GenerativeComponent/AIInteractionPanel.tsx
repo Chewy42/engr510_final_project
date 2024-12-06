@@ -1,9 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { addMessage } from '../../store/slices/aiSlice';
 import { setAIAssistantVisibility } from '../../store/slices/uiSlice';
-import { wsService } from '../../services/wsInstance';
+import { getWebSocketService } from '../../services/wsInstance';
+
+interface Message {
+  id: string;
+  content: string;
+  sender: 'user' | 'system';
+  timestamp: number;
+}
 
 const AIInteractionPanel: React.FC = () => {
   const dispatch = useDispatch();
@@ -12,6 +19,7 @@ const AIInteractionPanel: React.FC = () => {
   const { isAIAssistantVisible } = useSelector((state: RootState) => state.ui);
 
   useEffect(() => {
+    const wsService = getWebSocketService();
     wsService.connect();
     // Cleanup function
     return () => {
@@ -20,18 +28,23 @@ const AIInteractionPanel: React.FC = () => {
     };
   }, [dispatch]);
 
-  const handleSend = () => {
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
     if (!input.trim()) return;
 
-    const message = {
+    const message: Message = {
       id: Date.now().toString(),
       content: input.trim(),
-      sender: 'user' as const,
+      sender: 'user',
       timestamp: Date.now(),
     };
 
     dispatch(addMessage(message));
-    wsService.sendMessage(input.trim());
+    const wsService = getWebSocketService();
+    wsService.send({
+      type: 'message',
+      content: input.trim()
+    });
     setInput('');
   };
 
@@ -65,23 +78,23 @@ const AIInteractionPanel: React.FC = () => {
             <div className="text-gray-500 italic">AI is thinking...</div>
           )}
         </div>
-        <div className="flex gap-2">
+        <form onSubmit={handleSubmit} style={{ display: 'flex', gap: '8px' }}>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+            onKeyPress={(e) => e.key === 'Enter' && handleSubmit(e)}
             placeholder="Type your message..."
             className="flex-1 p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
-            onClick={handleSend}
+            type="submit"
             disabled={isProcessing}
             className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:bg-gray-400"
           >
             Send
           </button>
-        </div>
+        </form>
       </div>
     </div>
   );

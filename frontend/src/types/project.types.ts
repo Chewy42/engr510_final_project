@@ -3,73 +3,68 @@ export type ProjectMethodology = 'agile' | 'waterfall' | 'hybrid';
 export type ProjectStatus = 'planning' | 'in_progress' | 'completed' | 'on_hold';
 
 export interface Project {
-  project_id: number;
-  uid: number;
+  id: string;
   name: string;
   description: string;
-  methodology: ProjectMethodology;
-  status: ProjectStatus;
-  target_completion_date: string;
   created_at: string;
   updated_at: string;
-  flowData?: {
-    nodes: Node[];
-    edges: Edge[];
-  };
-}
-
-export type ArtifactType = 'requirements' | 'wbs' | 'gantt' | 'risk_matrix' | 'documentation';
-
-export interface ProjectArtifact {
-  id: number;
-  project_id: number;
-  type: ArtifactType;
-  content: string;
-  version: number;
-  status: string;
-  approved_by?: number;
-  created_at: string;
-}
-
-export type AnalyzerType = 'business_case' | 'requirements' | 'risk_assessment' | 'wbs' | 'quality';
-
-export interface AnalysisResult {
-  id: number;
-  project_id: number;
-  analyzer_type: AnalyzerType;
-  analysis_data: string;
-  recommendations: string;
-  created_at: string;
+  target_completion_date: string;
+  user_id: string;
+  prompt?: string;
+  methodology?: string;
 }
 
 export interface CreateProjectRequest {
   name: string;
   description: string;
-  methodology: ProjectMethodology;
   target_completion_date: string;
-  flowData?: {
-    nodes: Node[];
-    edges: Edge[];
-  };
+  methodology?: ProjectMethodology;
+}
+
+export enum ArtifactType {
+  CODE = 'CODE',
+  DOCUMENTATION = 'DOCUMENTATION',
+  TEST = 'TEST',
+  OTHER = 'OTHER'
+}
+
+export interface ProjectArtifact {
+  id: number;
+  project_id: number;
+  type: string;
+  content: string;
+  metadata?: any;
+  created_at: string;
+  updated_at: string;
+}
+
+export enum AnalyzerType {
+  COMPLEXITY = 'COMPLEXITY',
+  SECURITY = 'SECURITY',
+  PERFORMANCE = 'PERFORMANCE'
+}
+
+export interface AnalysisResult {
+  id: number;
+  project_id: number;
+  analyzer_type: string;
+  result: any;
+  created_at: string;
 }
 
 export interface UpdateProjectRequest extends Partial<CreateProjectRequest> {
   status?: ProjectStatus;
-  flowData?: {
-    nodes: Node[];
-    edges: Edge[];
-  };
 }
 
 export interface CreateArtifactRequest {
-  type: ArtifactType;
+  type: string;
   content: string;
   status: string;
   version?: number;
 }
 
 export interface CreateAnalysisRequest {
-  analyzer_type: AnalyzerType;
+  analyzer_type: string;
 }
 
 export interface Position {
@@ -80,8 +75,14 @@ export interface Position {
 export interface Node {
   id: string;
   type: string;
-  position: Position;
-  data: Record<string, any>;
+  position: {
+    x: number;
+    y: number;
+  };
+  data: {
+    label: string;
+    [key: string]: any;
+  };
 }
 
 export interface Edge {
@@ -89,28 +90,32 @@ export interface Edge {
   source: string;
   target: string;
   type?: string;
+  animated?: boolean;
+  label?: string;
+  style?: object;
 }
 
 export interface ProjectState {
-  // Flow diagram state
-  nodes: Node[];
-  edges: Edge[];
-  prompt: string;
-  
-  // Project management state
   projects: Project[];
   currentProject: Project | null;
-  artifacts: ProjectArtifact[];
-  analyses: AnalysisResult[];
-  
-  // Project creation state
+  isLoading: boolean;
+  error: string | null;
+  isProcessing: boolean;
+  showAIAssistant: boolean;
+  nodes: Node[];
+  edges: Edge[];
+  isDirty: boolean;
+  prompt: string;
+  artifacts: any[];
+  analyses: any[];
   projectName: string;
   projectDescription: string;
-  
-  // UI state
-  isLoading: boolean;
-  isProcessing: boolean;
-  error: string | null;
   projectId: string | null;
-  isDirty: boolean;
+}
+
+export interface Message {
+  id: string;
+  content: string;
+  sender: 'user' | 'system';
+  timestamp: number;
 }

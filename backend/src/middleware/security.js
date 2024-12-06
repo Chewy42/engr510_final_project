@@ -3,14 +3,18 @@ const cors = require('cors');
 const express = require('express');
 
 const configureSecurityMiddleware = (app) => {
-    // Enable Helmet's security headers
-    app.use(helmet());
+    // Enable Helmet's security headers with development-friendly config
+    app.use(helmet({
+        contentSecurityPolicy: false,
+        crossOriginEmbedderPolicy: false
+    }));
 
-    // Configure CORS
+    // Configure CORS for development
     const corsOptions = {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        origin: true, // Allow all origins in development
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        exposedHeaders: ['Content-Range', 'X-Content-Range'],
         credentials: true,
         maxAge: 86400 // 24 hours
     };
@@ -20,7 +24,7 @@ const configureSecurityMiddleware = (app) => {
     const rateLimit = require('express-rate-limit');
     const limiter = rateLimit({
         windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 100 // limit each IP to 100 requests per windowMs
+        max: 1000 // Increased limit for development
     });
     app.use('/api/', limiter);
 

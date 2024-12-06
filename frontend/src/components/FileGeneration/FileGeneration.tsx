@@ -80,7 +80,7 @@ const FileGeneration: React.FC = () => {
 
   return (
     <div className="flex h-full">
-      <FileTree />
+      <FileTree files={files} />
       <div className="flex-1 flex flex-col">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <button

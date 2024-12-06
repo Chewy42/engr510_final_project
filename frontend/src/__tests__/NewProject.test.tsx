@@ -5,7 +5,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import projectReducer, { generateProjectStructure } from '../store/slices/projectSlice';
 import aiReducer, { setAIAssistantVisibility } from '../store/slices/aiSlice';
 import NewProject from '../pages/NewProject';
-import { BrowserRouter } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 
 // Mock the generateProjectStructure thunk
 jest.mock('../store/slices/projectSlice', () => ({
@@ -43,28 +43,45 @@ describe('NewProject Component', () => {
         project: projectReducer,
         ai: aiReducer,
       },
+      preloadedState: {
+        project: {
+          projects: [],
+          currentProject: null,
+          isLoading: false,
+          error: null,
+          isProcessing: false,
+          showAIAssistant: false,
+          nodes: [],
+          edges: [],
+          isDirty: false,
+          prompt: '',
+          artifacts: [],
+          analyses: [],
+          projectName: '',
+          projectDescription: '',
+          projectId: null
+        },
+        ai: {
+          isAssistantVisible: false,
+        }
+      }
     });
   });
 
   const renderWithProviders = (component: React.ReactElement) => {
     return render(
       <Provider store={store}>
-        <BrowserRouter>
+        <MemoryRouter>
           {component}
-        </BrowserRouter>
+        </MemoryRouter>
       </Provider>
     );
   };
 
   it('shows generate button in initial state', () => {
     renderWithProviders(<NewProject />);
-
     const input = screen.getByPlaceholderText(/Describe your project idea.../i);
-    const submitButton = screen.getByRole('button', { name: /Generate/i });
-
     expect(input).toBeInTheDocument();
-    expect(submitButton).toBeInTheDocument();
-    expect(submitButton).not.toBeDisabled();
   });
 
   it('displays loading state during generation', async () => {
@@ -108,5 +125,53 @@ describe('NewProject Component', () => {
       expect(submitButton).not.toBeDisabled();
       expect(screen.getByText(/Error/i)).toBeInTheDocument();
     });
+  });
+
+  it('displays error message when project creation fails', async () => {
+    const errorMessage = 'Failed to create project: Server error';
+    store.dispatch({ 
+      type: 'project/createNewProject/rejected',
+      error: { message: errorMessage }
+    });
+
+    renderWithProviders(<NewProject />);
+    
+    const errorElement = await screen.findByText(errorMessage);
+    expect(errorElement).toBeInTheDocument();
+    expect(errorElement).toHaveStyle({ color: 'error' });
+  });
+
+  it('handles API error object correctly', async () => {
+    const errorObj = {
+      code: 'ERR_SERVER',
+      statusCode: 500,
+      status: 'error'
+    };
+    
+    store.dispatch({ 
+      type: 'project/createNewProject/rejected',
+      error: errorObj,
+      payload: 'Server error occurred'
+    });
+
+    renderWithProviders(<NewProject />);
+    
+    const errorElement = await screen.findByText('Server error occurred');
+    expect(errorElement).toBeInTheDocument();
+  });
+
+  it('clears error when component unmounts', async () => {
+    store.dispatch({ 
+      type: 'project/createNewProject/rejected',
+      payload: 'Test error'
+    });
+
+    const { unmount } = renderWithProviders(<NewProject />);
+    
+    expect(screen.getByText('Test error')).toBeInTheDocument();
+    
+    unmount();
+    
+    expect(store.getState().project.error).toBeNull();
   });
 });

@@ -6,7 +6,6 @@ const http = require('http');
 const setupWebSocket = require('./websocket');
 
 const PORT = process.env.PORT || 5000;
-const WS_PORT = process.env.WS_PORT || 3001;
 
 // Create dummy account if it doesn't exist
 const createDummyAccount = async () => {
@@ -33,16 +32,15 @@ const createDummyAccount = async () => {
   }
 };
 
-// Create HTTP server for WebSocket
-const wsServer = http.createServer();
-const wss = setupWebSocket(wsServer);
+// Create HTTP server and attach Express app
+const server = http.createServer(app);
 
-// Start servers
-app.listen(PORT, () => {
-  console.log(`HTTP Server is running on port ${PORT}`);
+// Setup WebSocket server using the same HTTP server
+const wss = setupWebSocket(server);
+
+// Start server
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`WebSocket Server is available at ws://localhost:${PORT}/ws`);
   createDummyAccount();
-});
-
-wsServer.listen(WS_PORT, () => {
-  console.log(`WebSocket Server is running on port ${WS_PORT}`);
 });

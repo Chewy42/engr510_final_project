@@ -3,10 +3,17 @@ const taskQueue = require('./services/queue.service');
 const { eventEmitter, ProjectSetupTask } = require('./services/tasks.service');
 
 function setupWebSocket(server) {
-    const wss = new WebSocket.Server({ server, path: '/ws' });
+    const wss = new WebSocket.Server({ 
+        server,
+        path: '/ws',
+        verifyClient: (info) => {
+            // Allow all origins in development
+            return true;
+        }
+    });
 
-    wss.on('connection', (ws) => {
-        console.log('New WebSocket connection established');
+    wss.on('connection', (ws, req) => {
+        console.log('New WebSocket connection established from:', req.socket.remoteAddress);
 
         // Set up task update listener for this connection
         const taskUpdateListener = async (update) => {
@@ -24,6 +31,7 @@ function setupWebSocket(server) {
                             type: 'stream_end'
                         }));
                     } catch (error) {
+                        console.error('Streaming error:', error);
                         ws.send(JSON.stringify({
                             type: 'error',
                             error: error.message
@@ -31,10 +39,14 @@ function setupWebSocket(server) {
                     }
                 } else {
                     // Handle regular updates
-                    ws.send(JSON.stringify({
-                        type: 'task_update',
-                        ...update
-                    }));
+                    try {
+                        ws.send(JSON.stringify({
+                            type: 'task_update',
+                            ...update
+                        }));
+                    } catch (error) {
+                        console.error('Error sending task update:', error);
+                    }
                 }
             }
         };
@@ -44,7 +56,7 @@ function setupWebSocket(server) {
         ws.on('message', async (message) => {
             try {
                 const data = JSON.parse(message);
-                console.log('Received:', data);
+                console.log('Received message:', data);
                 
                 if (data.content) {
                     // Start the component generation process
@@ -88,7 +100,14 @@ function setupWebSocket(server) {
         });
 
         // Send initial connection success message
-        ws.send(JSON.stringify({ type: 'connected' }));
+        try {
+            ws.send(JSON.stringify({ 
+                type: 'connected',
+                message: 'WebSocket connection established'
+            }));
+        } catch (error) {
+            console.error('Error sending connection message:', error);
+        }
     });
 
     return wss;

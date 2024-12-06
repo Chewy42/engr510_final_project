@@ -2,6 +2,8 @@ import { AgentType, AgentTask, TaskStatus } from '../types/aiTypes';
 import { Project, ProjectArtifact, AnalysisResult } from '../db/schema';
 import { ProjectRepository, ProjectArtifactRepository, AnalysisResultRepository } from '../db/repository';
 import { EventEmitter } from 'events';
+import { Node, Edge } from '../types/project.types';
+import { api } from './api';
 
 export interface AgentResult {
   type: AgentType;
@@ -11,6 +13,14 @@ export interface AgentResult {
     endTime: Date;
     status: TaskStatus;
   };
+}
+
+export interface Artifact {
+  id: string;
+  name: string;
+  type: string;
+  content: string;
+  metadata: Record<string, any>;
 }
 
 export class AgentOrchestrationService extends EventEmitter {
@@ -141,6 +151,15 @@ export class AgentOrchestrationService extends EventEmitter {
       recommendations: '',
       created_at: result.metadata.endTime
     });
+  }
+
+  async getArtifacts(projectId: string): Promise<Artifact[]> {
+    const response = await api.get(`/api/projects/${projectId}/artifacts`);
+    return response.data;
+  }
+
+  async processNode(nodeId: string, projectId: string): Promise<void> {
+    await api.post(`/api/projects/${projectId}/nodes/${nodeId}/process`);
   }
 
   // Mock agent implementations

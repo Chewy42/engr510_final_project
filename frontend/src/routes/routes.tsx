@@ -5,6 +5,7 @@ import Landing from '../pages/Landing';
 import SignIn from '../pages/SignIn';
 import SignUp from '../pages/SignUp';
 import Dashboard from '../pages/Dashboard';
+import NewProject from '../pages/NewProject';
 import NotFound from '../pages/NotFound';
 import ProtectedRoute from '../components/ProtectedRoute';
 
@@ -38,6 +39,10 @@ export const routes: RouteObject[] = [
       {
         index: true,
         element: <Dashboard />,
+      },
+      {
+        path: 'new-project',
+        element: <NewProject />,
       },
       // Add more dashboard routes here as needed
     ],

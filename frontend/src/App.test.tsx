@@ -50,7 +50,8 @@ function renderWithProviders(
         isProcessing: false,
         error: null,
         projectId: null,
-        isDirty: false
+        isDirty: false,
+        showAIAssistant: false
       },
       auth: {
         isAuthenticated: false,

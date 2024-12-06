@@ -12,7 +12,7 @@ const router = express.Router();
 // Get current user
 router.get('/me', auth, async (req, res, next) => {
   try {
-    const user = db.prepare('SELECT uid, email, created_at FROM users WHERE uid = ?').get(req.user.uid);
+    const user = db.prepare('SELECT id, email, created_at FROM users WHERE id = ?').get(req.user.id);
     
     if (!user) {
       throw new APIError(404, 'User not found');
@@ -43,8 +43,8 @@ router.post('/register', validate(registerValidation), async (req, res, next) =>
     // Insert new user
     const result = db.prepare('INSERT INTO users (email, password) VALUES (?, ?)').run(email, hashedPassword);
 
-    // Generate JWT token
-    const token = jwt.sign({ uid: result.lastInsertRowid }, process.env.JWT_SECRET);
+    // Generate JWT token with id instead of uid
+    const token = jwt.sign({ id: result.lastInsertRowid }, process.env.JWT_SECRET);
 
     res.status(201).json({ token });
   } catch (error) {
@@ -56,29 +56,21 @@ router.post('/register', validate(registerValidation), async (req, res, next) =>
 router.post('/login', validate(loginValidation), async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    console.log('Login attempt:', { email }); // Log login attempt
 
-    // Find user
+    // Find user by email
     const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-    console.log('User found:', user ? 'yes' : 'no'); // Log if user was found
-
     if (!user) {
-      console.log('User not found');
-      throw new APIError(401, 'Invalid credentials');
+      throw new APIError(401, 'Invalid email or password');
     }
 
     // Check password
-    const isMatch = await bcrypt.compare(password, user.password);
-    console.log('Password match:', isMatch); // Log password match result
-
-    if (!isMatch) {
-      console.log('Password mismatch');
-      throw new APIError(401, 'Invalid credentials');
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      throw new APIError(401, 'Invalid email or password');
     }
 
-    // Generate JWT token
-    const token = jwt.sign({ uid: user.uid }, process.env.JWT_SECRET);
-    console.log('Token generated successfully');
+    // Generate JWT token with id instead of uid
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
 
     res.json({ token });
   } catch (error) {

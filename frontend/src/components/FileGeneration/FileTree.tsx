@@ -56,9 +56,11 @@ const FileTreeItem: React.FC<FileTreeItemProps> = ({ item, level }) => {
   );
 };
 
-const FileTree: React.FC = () => {
-  const files = useSelector(selectFileStructure);
+interface FileTreeProps {
+  files: FileStructure[];
+}
 
+const FileTree: React.FC<FileTreeProps> = ({ files }) => {
   return (
     <div data-testid="file-tree" className="w-64 border-r border-gray-200 dark:border-gray-700 h-full overflow-y-auto">
       <div className="p-4">

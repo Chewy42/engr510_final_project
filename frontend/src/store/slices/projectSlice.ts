@@ -1,125 +1,94 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from 'axios';
-import { ProjectState, Project, ProjectArtifact, AnalysisResult, CreateProjectRequest, CreateArtifactRequest, CreateAnalysisRequest, Node, Edge } from '../../types/project.types';
+import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import { Project, ProjectState, CreateProjectRequest, Node, Edge } from '../../types/project.types';
+import { api, APIError } from '../../services/api';
+import { extractErrorMessage } from '../../utils/errorHandling';
 
 const initialState: ProjectState = {
-  // Flow diagram state
-  nodes: [],
-  edges: [],
-  prompt: '',
-  
-  // Project management state
   projects: [],
   currentProject: null,
+  isLoading: false,
+  error: null,
+  isProcessing: false,
+  showAIAssistant: false,
+  nodes: [],
+  edges: [],
+  isDirty: false,
+  prompt: '',
   artifacts: [],
   analyses: [],
-  
-  // Project creation state
   projectName: '',
   projectDescription: '',
-  
-  // UI state
-  isLoading: false,
-  isProcessing: false,
-  error: null,
-  projectId: null,
-  isDirty: false
+  projectId: null
 };
 
 // Async thunks
-export const fetchProjects = createAsyncThunk(
+export const fetchProjects = createAsyncThunk<
+  Project[],
+  void,
+  { rejectValue: string }
+>(
   'project/fetchProjects',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await axios.get('/api/projects');
+      const response = await api.get<Project[]>('/projects');
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch projects');
+      return rejectWithValue(extractErrorMessage(error));
     }
   }
 );
 
-export const fetchProject = createAsyncThunk(
-  'project/fetchProject',
-  async (projectId: string, { rejectWithValue }) => {
+export const fetchProjectById = createAsyncThunk<
+  Project,
+  string,
+  { rejectValue: string }
+>(
+  'project/fetchProjectById',
+  async (id, { rejectWithValue }) => {
     try {
-      const response = await axios.get(`/api/projects/${projectId}`);
+      const response = await api.get<Project>(`/projects/${id}`);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch project');
+      return rejectWithValue(extractErrorMessage(error));
     }
   }
 );
 
-export const createNewProject = createAsyncThunk(
+export const createNewProject = createAsyncThunk<
+  Project,
+  CreateProjectRequest,
+  { rejectValue: string }
+>(
   'project/createNewProject',
-  async (projectData: CreateProjectRequest, { rejectWithValue }) => {
+  async (projectData, { rejectWithValue }) => {
     try {
-      const response = await axios.post('/api/projects', projectData);
+      const response = await api.post<Project>('/projects', projectData);
       return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create project');
+    } catch (error) {
+      if (error instanceof APIError) {
+        return rejectWithValue(error.message);
+      }
+      if (error instanceof Error) {
+        return rejectWithValue(error.message);
+      }
+      return rejectWithValue('Failed to create project');
     }
+  }
+);
+
+export const updateExistingProject = createAsyncThunk(
+  'project/updateExistingProject',
+  async ({ id, data }: { id: string; data: Partial<Project> }) => {
+    const response = await api.put<Project>(`/projects/${id}`, data);
+    return response.data;
   }
 );
 
 export const deleteExistingProject = createAsyncThunk(
   'project/deleteExistingProject',
-  async (projectId: string, { rejectWithValue }) => {
-    try {
-      await axios.delete(`/api/projects/${projectId}`);
-      return projectId;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to delete project');
-    }
-  }
-);
-
-export const fetchProjectArtifacts = createAsyncThunk(
-  'project/fetchProjectArtifacts',
-  async (projectId: string, { rejectWithValue }) => {
-    try {
-      const response = await axios.get(`/api/projects/${projectId}/artifacts`);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch artifacts');
-    }
-  }
-);
-
-export const createProjectArtifact = createAsyncThunk(
-  'project/createProjectArtifact',
-  async ({ projectId, artifactData }: { projectId: string; artifactData: CreateArtifactRequest }, { rejectWithValue }) => {
-    try {
-      const response = await axios.post(`/api/projects/${projectId}/artifacts`, artifactData);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create artifact');
-    }
-  }
-);
-
-export const fetchProjectAnalyses = createAsyncThunk(
-  'project/fetchProjectAnalyses',
-  async (projectId: string, { rejectWithValue }) => {
-    try {
-      const response = await axios.get(`/api/projects/${projectId}/analyses`);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch analyses');
-    }
-  }
-);
-
-export const createProjectAnalysis = createAsyncThunk(
-  'project/createProjectAnalysis',
-  async ({ projectId, analysisData }: { projectId: string; analysisData: CreateAnalysisRequest }, { rejectWithValue }) => {
-    try {
-      const response = await axios.post(`/api/projects/${projectId}/analyses`, analysisData);
-      return response.data;
-    } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || 'Failed to create analysis');
-    }
+  async (id: string) => {
+    await api.delete(`/projects/${id}`);
+    return id;
   }
 );
 
@@ -127,33 +96,40 @@ const projectSlice = createSlice({
   name: 'project',
   initialState,
   reducers: {
-    setNodes: (state, action) => {
-      state.nodes = action.payload;
-      state.isDirty = true;
-    },
-    setEdges: (state, action) => {
-      state.edges = action.payload;
-      state.isDirty = true;
-    },
-    setPrompt: (state, action) => {
-      state.prompt = action.payload;
-    },
-    setProjectName: (state, action) => {
-      state.projectName = action.payload;
-    },
-    setProjectDescription: (state, action) => {
-      state.projectDescription = action.payload;
-    },
-    setIsDirty: (state, action) => {
-      state.isDirty = action.payload;
-    },
     clearError: (state) => {
       state.error = null;
+    },
+    setIsProcessing: (state, action: PayloadAction<boolean>) => {
+      state.isProcessing = action.payload;
+    },
+    setShowAIAssistant: (state, action: PayloadAction<boolean>) => {
+      state.showAIAssistant = action.payload;
+    },
+    setNodes: (state, action: PayloadAction<Node[]>) => {
+      state.nodes = action.payload;
+    },
+    setEdges: (state, action: PayloadAction<Edge[]>) => {
+      state.edges = action.payload;
+    },
+    setProjectName: (state, action: PayloadAction<string>) => {
+      state.projectName = action.payload;
+    },
+    setProjectDescription: (state, action: PayloadAction<string>) => {
+      state.projectDescription = action.payload;
+    },
+    setIsDirty: (state, action: PayloadAction<boolean>) => {
+      state.isDirty = action.payload;
+    },
+    createProjectArtifact: (state, action: PayloadAction<any>) => {
+      // Handle artifact creation in state
+      state.artifacts.push(action.payload);
+    },
+    setAIAssistantVisibility: (state, action: PayloadAction<boolean>) => {
+      state.showAIAssistant = action.payload;
     }
   },
   extraReducers: (builder) => {
     builder
-      // Fetch Projects
       .addCase(fetchProjects.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -161,29 +137,27 @@ const projectSlice = createSlice({
       .addCase(fetchProjects.fulfilled, (state, action) => {
         state.isLoading = false;
         state.projects = action.payload;
+        state.error = null;
       })
       .addCase(fetchProjects.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload || 'Failed to fetch projects';
+        state.projects = [];
       })
-      // Fetch Single Project
-      .addCase(fetchProject.pending, (state) => {
+      .addCase(fetchProjectById.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchProject.fulfilled, (state, action) => {
+      .addCase(fetchProjectById.fulfilled, (state, action) => {
         state.isLoading = false;
         state.currentProject = action.payload;
-        if (action.payload.flowData) {
-          state.nodes = action.payload.flowData.nodes;
-          state.edges = action.payload.flowData.edges;
-        }
+        state.error = null;
       })
-      .addCase(fetchProject.rejected, (state, action) => {
+      .addCase(fetchProjectById.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload || 'Failed to fetch project';
+        state.currentProject = null;
       })
-      // Create Project
       .addCase(createNewProject.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -191,87 +165,62 @@ const projectSlice = createSlice({
       .addCase(createNewProject.fulfilled, (state, action) => {
         state.isLoading = false;
         state.projects.push(action.payload);
+        state.currentProject = action.payload;
+        state.error = null;
       })
       .addCase(createNewProject.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = action.payload || action.error.message || 'Failed to create project';
       })
-      // Delete Project
+      .addCase(updateExistingProject.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateExistingProject.fulfilled, (state, action) => {
+        state.isLoading = false;
+        const index = state.projects.findIndex(p => p.id === action.payload.id);
+        if (index !== -1) {
+          state.projects[index] = action.payload;
+        }
+        if (state.currentProject?.id === action.payload.id) {
+          state.currentProject = action.payload;
+        }
+        state.error = null;
+      })
+      .addCase(updateExistingProject.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = (action.payload as string) || action.error.message || 'Failed to update project';
+      })
       .addCase(deleteExistingProject.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(deleteExistingProject.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.projects = state.projects.filter(project => project.project_id.toString() !== action.payload);
+        state.projects = state.projects.filter(p => p.id !== action.payload);
+        if (state.currentProject?.id === action.payload) {
+          state.currentProject = null;
+        }
+        state.error = null;
       })
       .addCase(deleteExistingProject.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // Fetch Artifacts
-      .addCase(fetchProjectArtifacts.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchProjectArtifacts.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.artifacts = action.payload;
-      })
-      .addCase(fetchProjectArtifacts.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // Create Artifact
-      .addCase(createProjectArtifact.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(createProjectArtifact.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.artifacts.push(action.payload);
-      })
-      .addCase(createProjectArtifact.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // Fetch Analyses
-      .addCase(fetchProjectAnalyses.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(fetchProjectAnalyses.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.analyses = action.payload;
-      })
-      .addCase(fetchProjectAnalyses.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-      })
-      // Create Analysis
-      .addCase(createProjectAnalysis.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(createProjectAnalysis.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.analyses.push(action.payload);
-      })
-      .addCase(createProjectAnalysis.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
+        state.error = (action.payload as string) || action.error.message || 'Failed to delete project';
       });
   }
 });
 
-export const { 
-  setNodes, 
-  setEdges, 
-  setPrompt, 
+export const {
+  clearError,
+  setIsProcessing,
+  setShowAIAssistant,
+  setNodes,
+  setEdges,
   setProjectName,
   setProjectDescription,
-  setIsDirty, 
-  clearError 
+  setIsDirty,
+  createProjectArtifact,
+  setAIAssistantVisibility
 } = projectSlice.actions;
 
 export default projectSlice.reducer;

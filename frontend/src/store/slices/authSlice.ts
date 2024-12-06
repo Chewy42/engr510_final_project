@@ -54,23 +54,42 @@ export const initializeAuth = createAsyncThunk(
   'auth/initialize',
   async (_, { rejectWithValue }) => {
     const token = loadToken();
-    if (token) {
-      try {
-        const response = await axios.get(`${API_URL}/auth/me`);
-        
-        if (!response.data) {
-          throw new Error('Invalid user data');
-        }
-        
-        return { token, user: response.data };
-      } catch (error) {
-        clearToken();
-        return rejectWithValue('Invalid token');
-      }
+    if (!token) {
+      return null;
     }
-    return null;
+
+    try {
+      const response = await axios.get(`${API_URL}/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      
+      if (!response.data) {
+        throw new Error('Invalid user data');
+      }
+      
+      return { token, user: response.data };
+    } catch (error: any) {
+      clearToken();
+      return rejectWithValue(getErrorMessage(error));
+    }
   }
 );
+
+// Helper function to extract error message
+const getErrorMessage = (error: any): string => {
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+  if (error.response?.data?.error) {
+    return error.response.data.error;
+  }
+  if (error.message) {
+    return error.message;
+  }
+  return 'An unexpected error occurred';
+};
 
 // Register action
 export const register = createAsyncThunk(
@@ -95,7 +114,7 @@ export const register = createAsyncThunk(
 
       return { token, user: userResponse.data };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Registration failed');
+      return rejectWithValue(getErrorMessage(error));
     }
   }
 );
@@ -103,27 +122,14 @@ export const register = createAsyncThunk(
 // Login action
 export const login = createAsyncThunk(
   'auth/login',
-  async (credentials: { email: string; password: string; rememberMe?: boolean }, { rejectWithValue }) => {
+  async ({ email, password, rememberMe = false }: { email: string; password: string; rememberMe?: boolean }, { rejectWithValue }) => {
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, credentials);
-      const { token } = response.data;
-      
-      if (!token) {
-        throw new Error('No token received');
-      }
-
-      // Save token based on remember me preference
-      saveToken(token, credentials.rememberMe);
-      
-      const userResponse = await axios.get(`${API_URL}/auth/me`);
-      
-      if (!userResponse.data) {
-        throw new Error('Invalid user data');
-      }
-
-      return { token, user: userResponse.data };
+      const response = await axios.post(`${API_URL}/auth/login`, { email, password });
+      const { token, user } = response.data;
+      saveToken(token, rememberMe);
+      return { token, user };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Login failed');
+      return rejectWithValue(getErrorMessage(error));
     }
   }
 );
@@ -146,7 +152,7 @@ export const refreshToken = createAsyncThunk(
       
       return { token };
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.error || 'Token refresh failed');
+      return rejectWithValue(getErrorMessage(error));
     }
   }
 );
@@ -178,6 +184,10 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
+      } else {
+        state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
       }
       state.loading = false;
       state.initialized = true;
@@ -189,6 +199,7 @@ const authSlice = createSlice({
       state.loading = false;
       state.error = action.payload as string;
       state.initialized = true;
+      clearToken();
     });
 
     // Register

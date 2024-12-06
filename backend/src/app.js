@@ -13,6 +13,12 @@ const analysisRoutes = require('./routes/analysis');
 
 const app = express();
 
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
+  next();
+});
+
 // Configure security middleware (includes helmet, cors, and rate limiting)
 configureSecurityMiddleware(app);
 
@@ -20,15 +26,25 @@ configureSecurityMiddleware(app);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Health check endpoint (before other routes to ensure it's always accessible)
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ status: 'ok', message: 'Server is running' });
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/projects/:projectId/analysis', analysisRoutes);
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Server is running' });
+// 404 handler
+app.use((req, res) => {
+  console.log(`404 Not Found: ${req.method} ${req.url}`);
+  res.status(404).json({ 
+    error: 'Not Found',
+    message: `Cannot ${req.method} ${req.url}`,
+    path: req.url
+  });
 });
 
 // Global error handling middleware

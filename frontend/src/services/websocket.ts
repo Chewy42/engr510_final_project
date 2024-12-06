@@ -1,131 +1,82 @@
-import { Store } from '@reduxjs/toolkit';
+import { Store, AnyAction } from '@reduxjs/toolkit';
 import { setWsConnected, addMessage, setProcessing, updateTask } from '../store/slices/aiSlice';
-import { setNodes, setEdges } from '../store/slices/projectSlice';
+import { setIsProcessing } from '../store/slices/projectSlice';
 
 export class WebSocketService {
   private ws: WebSocket | null = null;
-  private readonly url: string;
-  private store: Store | null = null;
+  private store: Store<any, AnyAction>;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000; // Start with 1 second delay
 
-  constructor() {
-    this.url = process.env.REACT_APP_WS_URL || 'ws://localhost:3001/ws';
-  }
-
-  setStore(store: Store) {
+  constructor(store: Store<any, AnyAction>) {
     this.store = store;
   }
 
-  private ensureStore(): Store {
-    if (!this.store) {
-      throw new Error('Store is not initialized');
-    }
-    return this.store;
-  }
-
   connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      console.log('WebSocket already connected');
+      return;
+    }
 
-    this.ws = new WebSocket(this.url);
-    const store = this.ensureStore();
+    try {
+      this.ws = new WebSocket('ws://localhost:5000/ws');
 
-    this.ws.onopen = () => {
-      store.dispatch(setWsConnected(true));
-      console.log('WebSocket connected');
-    };
+      this.ws.onopen = () => {
+        console.log('WebSocket connected');
+        this.store.dispatch(setWsConnected(true));
+        this.reconnectAttempts = 0;
+        this.reconnectDelay = 1000;
+      };
 
-    this.ws.onclose = () => {
-      store.dispatch(setWsConnected(false));
-      console.log('WebSocket disconnected');
-      // Attempt to reconnect after 5 seconds
-      setTimeout(() => this.connect(), 5000);
-    };
+      this.ws.onclose = () => {
+        console.log('WebSocket disconnected');
+        this.store.dispatch(setWsConnected(false));
+        this.attemptReconnect();
+      };
 
-    this.ws.onmessage = (event) => {
-      try {
-        const message = JSON.parse(event.data);
-        const store = this.ensureStore();
-        
-        switch (message.type) {
-          case 'task_update':
-            store.dispatch(updateTask({
-              type: message.type,
-              status: message.status,
-              message: message.message,
-              data: message.data,
-              children: message.children,
-            }));
-            
-            // Also add a message to the chat
-            store.dispatch(addMessage({
-              id: Date.now().toString(),
-              content: `${message.message || message.type} - ${message.status}`,
-              sender: 'system',
-              timestamp: Date.now(),
-            }));
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
 
-            // Update nodes and edges if data contains them
-            if (message.data?.nodes && message.data?.edges) {
-              store.dispatch(setNodes(message.data.nodes));
-              store.dispatch(setEdges(message.data.edges));
-            }
-            break;
+      this.ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log('Received message:', data);
 
-          case 'generation_started':
-            store.dispatch(addMessage({
-              id: Date.now().toString(),
-              content: message.message,
-              sender: 'system',
-              timestamp: Date.now(),
-            }));
-            store.dispatch(setProcessing(true));
-            break;
-
-          case 'generation_complete':
-            store.dispatch(addMessage({
-              id: Date.now().toString(),
-              content: 'Project structure generation complete',
-              sender: 'system',
-              timestamp: Date.now(),
-            }));
-            store.dispatch(setProcessing(false));
-            break;
-
-          case 'error':
-            store.dispatch(addMessage({
-              id: Date.now().toString(),
-              content: 'Error: ' + message.content,
-              sender: 'system',
-              timestamp: Date.now(),
-            }));
-            store.dispatch(setProcessing(false));
-            break;
+          switch (data.type) {
+            case 'message':
+              this.store.dispatch(addMessage(data.payload));
+              break;
+            case 'processing':
+              this.store.dispatch(setProcessing(data.payload));
+              this.store.dispatch(setIsProcessing(data.payload));
+              break;
+            case 'task_update':
+              this.store.dispatch(updateTask(data.payload));
+              break;
+            default:
+              console.log('Unknown message type:', data.type);
+          }
+        } catch (error) {
+          console.error('Error processing message:', error);
         }
-      } catch (error) {
-        console.error('Error parsing WebSocket message:', error);
-        this.ensureStore().dispatch(setProcessing(false));
-      }
-    };
-
-    this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      store.dispatch(setProcessing(false));
-    };
+      };
+    } catch (error) {
+      console.error('Error connecting to WebSocket:', error);
+    }
   }
 
-  sendMessage(content: string) {
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      const store = this.ensureStore();
-      store.dispatch(setProcessing(true));
-      this.ws.send(JSON.stringify({ content }));
+  private attemptReconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      console.log(`Attempting to reconnect (${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})...`);
+      setTimeout(() => {
+        this.reconnectAttempts++;
+        this.reconnectDelay *= 2; // Exponential backoff
+        this.connect();
+      }, this.reconnectDelay);
     } else {
-      console.error('WebSocket is not connected');
-      const store = this.ensureStore();
-      store.dispatch(addMessage({
-        id: Date.now().toString(),
-        content: 'Error: WebSocket is not connected',
-        sender: 'system',
-        timestamp: Date.now(),
-      }));
+      console.log('Max reconnection attempts reached');
     }
   }
 
@@ -135,8 +86,16 @@ export class WebSocketService {
       this.ws = null;
     }
   }
+
+  send(message: any) {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(message));
+    } else {
+      console.error('WebSocket is not connected');
+    }
+  }
 }
 
-export function createWebSocketService(): WebSocketService {
-  return new WebSocketService();
+export function createWebSocketService(store: Store<any, AnyAction>): WebSocketService {
+  return new WebSocketService(store);
 }

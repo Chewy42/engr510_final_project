@@ -86,4 +86,49 @@ router.post('/stream',
     }
 );
 
+// Generate project structure
+router.post('/generate-structure',
+    authMiddleware,
+    async (req, res) => {
+        try {
+            const { projectId, prompt } = req.body;
+            
+            if (!projectId || !prompt) {
+                return res.status(400).json({ 
+                    error: 'Project ID and prompt are required' 
+                });
+            }
+
+            // Use the AI service to generate the project structure
+            const template = 'project_structure';
+            const variables = {
+                prompt,
+                projectId
+            };
+
+            const response = await aiService.generateResponse(template, {
+                variables,
+                temperature: 0.7,
+                maxTokens: 2000
+            });
+
+            // Parse the response and create nodes/edges
+            const { nodes, edges } = JSON.parse(response);
+
+            res.json({ 
+                success: true,
+                nodes,
+                edges,
+                message: 'Project structure generated successfully'
+            });
+        } catch (error) {
+            console.error('Project structure generation error:', error);
+            res.status(500).json({ 
+                error: 'Failed to generate project structure',
+                details: error.message 
+            });
+        }
+    }
+);
+
 module.exports = router;

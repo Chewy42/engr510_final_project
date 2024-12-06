@@ -1,159 +1,137 @@
-import React, { useState, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import ReactFlow, {
-  Background,
+  Node as FlowNode,
+  Edge as FlowEdge,
   Controls,
-  Edge,
-  Node,
-  BackgroundVariant,
+  Background,
   ReactFlowProvider,
   useNodesState,
   useEdgesState,
+  Connection,
+  addEdge,
+  NodeChange,
+  EdgeChange
 } from 'reactflow';
+import { useDispatch, useSelector } from 'react-redux';
+import { RootState } from '../../store/store';
+import { AgentOrchestrationService, Artifact } from '../../services/AgentOrchestrationService';
+import { Node, Edge } from '../../types/project.types';
+import { setNodes, setEdges, setIsProcessing } from '../../store/slices/projectSlice';
 import 'reactflow/dist/style.css';
-import { useSelector } from 'react-redux';
-import { RootState, useAppDispatch } from '../../store';
-import { agentOrchestrationService } from '../../services/agentOrchestration';
-import { calculateNodePositions } from './utils/nodePositioning';
-import { RequirementNode, ArchitectureNode, TimelineNode, RiskNode } from './nodes/CustomNodes';
-
-interface Project {
-  project_id: string;
-  // Add other project properties here
-}
-
-interface ProjectState {
-  currentProject: Project | null;
-  isProcessing: boolean;
-  // Add other state properties here
-}
-
-interface AgentOrchestrationService {
-  getArtifacts: (projectId: string) => Promise<any>;
-  generateArtifacts: () => Promise<{nodes: Node[], edges: Edge[]}>;
-  approveArtifact: (nodeId: string) => Promise<void>;
-  executeAnalysis: (projectId: string) => Promise<void>;
-}
-
-const nodeTypes = {
-  requirement: RequirementNode,
-  architecture: ArchitectureNode,
-  timeline: TimelineNode,
-  risk: RiskNode,
-};
-
-type CustomNode = Node & {
-  type: keyof typeof nodeTypes;
-};
 
 interface Props {
   agentOrchestrationService: AgentOrchestrationService;
+  initialNodes?: Node[];
+  initialEdges?: Edge[];
 }
 
-const Flow: React.FC<Props> = ({ agentOrchestrationService }) => {
-  const dispatch = useAppDispatch();
-  const { currentProject, isProcessing } = useSelector((state: RootState) => state.project);
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [isProcessingState, setIsProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+const calculateNodePositions = (artifacts: Artifact[]): { nodes: Node[], edges: Edge[] } => {
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
+  let y = 0;
 
-  useEffect(() => {
-    if (currentProject) {
-      loadArtifacts();
+  artifacts.forEach((artifact, index) => {
+    // Create node for the artifact
+    nodes.push({
+      id: artifact.id,
+      type: 'default',
+      position: { x: 250, y: y },
+      data: { label: artifact.name }
+    });
+
+    // If not the first node, create an edge from the previous node
+    if (index > 0) {
+      edges.push({
+        id: `e${index}`,
+        source: artifacts[index - 1].id,
+        target: artifact.id,
+        animated: true
+      });
     }
-  }, [currentProject]);
 
-  const loadArtifacts = async () => {
-    if (!currentProject || !currentProject.project_id) return;
+    y += 100; // Increment vertical position for next node
+  });
+
+  return { nodes, edges };
+};
+
+const Flow: React.FC<Props> = ({ agentOrchestrationService, initialNodes = [], initialEdges = [] }) => {
+  const dispatch = useDispatch();
+  const currentProject = useSelector((state: RootState) => state.project.currentProject);
+  const [nodes, setLocalNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setLocalEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [isProcessingState, setIsProcessingState] = useState(false);
+
+  const onConnect = useCallback(
+    (params: Connection | FlowEdge) => setLocalEdges((eds) => addEdge(params, eds)),
+    [setLocalEdges]
+  );
+
+  const onNodeClick = useCallback(async (event: React.MouseEvent, node: FlowNode) => {
+    if (!currentProject?.id) return;
     
     try {
-      const artifacts = await agentOrchestrationService.getArtifacts(currentProject.project_id.toString());
-      const { nodes: newNodes, edges: newEdges } = calculateNodePositions(artifacts);
-      setNodes(newNodes as CustomNode[]);
-      setEdges(newEdges);
-    } catch (err) {
-      setError('Failed to load artifacts');
-      console.error(err);
-    }
-  };
-
-  const handleGenerate = async () => {
-    setIsProcessing(true);
-    setError(null);
-
-    try {
-      const result = await agentOrchestrationService.generateArtifacts();
-      if (!result || !result.nodes || !result.edges) {
-        throw new Error('Invalid response from server');
-      }
-
-      const processedNodes = result.nodes.map(node => ({
-        ...node,
-        data: {
-          ...node.data,
-          label: node.data.label || 'Untitled Node'
-        }
-      }));
-
-      setNodes(processedNodes);
-      setEdges(result.edges);
-    } catch (err) {
-      setError('Failed to load artifacts');
-      console.error(err);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleApproveNode = async (nodeId: string) => {
-    if (!currentProject) return;
-
-    try {
-      await agentOrchestrationService.approveArtifact(nodeId);
+      setIsProcessingState(true);
+      dispatch(setIsProcessing(true));
+      
+      await agentOrchestrationService.processNode(node.id, currentProject.id.toString());
+      
       // Reload artifacts to update the view
-      const artifacts = await agentOrchestrationService.getArtifacts(currentProject.project_id.toString());
+      const artifacts = await agentOrchestrationService.getArtifacts(currentProject.id.toString());
       const { nodes: newNodes, edges: newEdges } = calculateNodePositions(artifacts);
-      setNodes(newNodes as CustomNode[]);
-      setEdges(newEdges);
-    } catch (err) {
-      setError('Failed to approve artifact');
-      console.error(err);
+      
+      setLocalNodes(newNodes);
+      setLocalEdges(newEdges);
+      dispatch(setNodes(newNodes));
+      dispatch(setEdges(newEdges));
+    } catch (error) {
+      console.error('Failed to process node click:', error);
+    } finally {
+      setIsProcessingState(false);
+      dispatch(setIsProcessing(false));
     }
-  };
+  }, [currentProject, agentOrchestrationService, dispatch, setLocalNodes, setLocalEdges]);
+
+  useEffect(() => {
+    const loadArtifacts = async () => {
+      if (!currentProject?.id) return;
+      
+      try {
+        const artifacts = await agentOrchestrationService.getArtifacts(currentProject.id.toString());
+        const { nodes: newNodes, edges: newEdges } = calculateNodePositions(artifacts);
+        
+        setLocalNodes(newNodes);
+        setLocalEdges(newEdges);
+        dispatch(setNodes(newNodes));
+        dispatch(setEdges(newEdges));
+      } catch (error) {
+        console.error('Failed to load artifacts:', error);
+      }
+    };
+
+    loadArtifacts();
+  }, [currentProject, agentOrchestrationService, dispatch, setLocalNodes, setLocalEdges]);
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-1 relative">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          nodeTypes={nodeTypes}
-          fitView
-        >
-          <Controls />
-          <Background />
-        </ReactFlow>
-      </div>
-      <div className="p-4">
-        <button
-          onClick={handleGenerate}
-          disabled={isProcessingState}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
-        >
-          {isProcessingState ? 'Generating...' : 'Generate'}
-        </button>
-        {error && <div className="text-red-500 mt-2">{error}</div>}
-      </div>
+    <div style={{ width: '100%', height: '500px' }}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onNodeClick={onNodeClick}
+        fitView
+      >
+        <Controls />
+        <Background color="#aaa" gap={16} />
+      </ReactFlow>
     </div>
   );
 };
 
-const AIFlowVisualization: React.FC<Props> = ({ agentOrchestrationService }) => (
+export const AIFlowVisualization: React.FC<Props> = (props) => (
   <ReactFlowProvider>
-    <Flow agentOrchestrationService={agentOrchestrationService} />
+    <Flow {...props} />
   </ReactFlowProvider>
 );
-
-export default AIFlowVisualization;
