@@ -35,6 +35,6 @@
     "chokidar": "^4.0.1",
     "jest": "^29.7.0",
     "nodemon": "^3.0.2",
-    "supertest": "^6.3.4"
+    "supertest": "^7.1.0"
   }
 }
